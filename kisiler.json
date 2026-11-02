@@ -1,0 +1,32 @@
+{
+ "kullanicilar": [
+  {
+   "ad": "İlhan Sedat Çebi",
+   "telefon": "05336093907",
+   "rol": "yonetici",
+   "pinOzet": "403ac77bb3a980b290521bec94a19fe32f693d97a6c1edefdf4002acc8a3a08b",
+   "tuz": "aee785f5e328a632f2e14adf8bc82c48"
+  },
+  {
+   "ad": "Şaheste Akgündüz Uzun",
+   "telefon": "05444438842",
+   "rol": "personel",
+   "pinOzet": "3e3ea1d1546090532438235c19a1ac117381d96bff301816662d521b17cf5f28",
+   "tuz": "62939011bf53978b2a16b49f4ebfcc35"
+  },
+  {
+   "ad": "İbrahim Kaygısız",
+   "telefon": "05422103517",
+   "rol": "personel",
+   "pinOzet": "d975c2508c0d4881515e767bec4c6b78c65a4ccec10388c5e8ef83b44add4404",
+   "tuz": "bf3285a14e1692742e9f207db4db0212"
+  },
+  {
+   "ad": "Fatih Karagöz",
+   "telefon": "05452121467",
+   "rol": "personel",
+   "pinOzet": "a32f009dcd920de8cf7f4c8f4323ae0851b6c4294638bd1b3e2f70be70877417",
+   "tuz": "1fdcc47ab40124c53ab94135a9607efa"
+  }
+ ]
+}
