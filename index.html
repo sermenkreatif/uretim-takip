@@ -666,10 +666,7 @@ function panelHTML(){
   const son=S.isler.filter(j=>j.durum==="tamam"||j.durum==="hata").sort((a,b)=>(b.bitis||0)-(a.bitis||0)).slice(0,5);
   const yuk=!S.ready.isler||!S.ready.stok;
   const w=S.sistem;
-  const baglanKart=PI_EKRANI&&w&&w.ssid?`<div class="baglan">
-    <figure class="qrf"><div class="qr"><img src="/qr.svg?t=wifi" alt="Wi-Fi karekodu" onerror="this.closest('figure').hidden=true"></div><figcaption>1 · Wi-Fi'ye bağlan</figcaption></figure>
-    <div class="bt">Telefonla bağlanmak için kamerayla karekodu okutun ya da <b>${esc(w.ssid)}</b> ağına ${w.sifre?`<b>${esc(w.sifre)}</b> şifresiyle `:""}bağlanın. Sonra tarayıcıda <b>${esc(w.adres.replace(/^https?:\/\//,""))}</b> adresini açın.</div>
-    <figure class="qrf"><div class="qr"><img src="/qr.svg?t=adres" alt="Adres karekodu" onerror="this.closest('figure').hidden=true"></div><figcaption>2 · Sistemi aç</figcaption></figure></div>`:"";
+  const baglanKart="";
   const sa=new Date().getHours(),selam=sa<11?"Günaydın":sa<18?"İyi çalışmalar":"İyi akşamlar";
   const ad=S.misafir?(kimlikGecerli()?S.kimlik.ad.split(" ")[0]:""):(S.ben&&S.ben.ad||"").split(" ")[0];
   const bugun=new Date().toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
@@ -1187,7 +1184,7 @@ function girisGoster(kurulum,tusTakimi){
   if(kurulum){vitrinKapat();return kurulumEkrani()}
   /* Giriş yok: sistem herkese açık. Pi ekranı boştayken stok panosu (vitrin) görünür.
      Tuş takımı yalnızca yönetici girişi için açılır. */
-  if(!tusTakimi)return PI_EKRANI?vitrinGoster():misafirAc();
+  if(!tusTakimi)return misafirAc();
   vitrinKapat();
   let asama="tel",tel="",pin="",mesgul=false;
   const ciz=(hata)=>{
@@ -1275,6 +1272,7 @@ function girisYapildi(ben,misafir){
   app.innerHTML=`<div class="empty">Kayıtlar yükleniyor…</div>`;
   setSync(true,"Bağlı · "+kisiAd());
   yenile();sistemYukle().then(()=>{if(PI_EKRANI)render()});
+  if(PI_EKRANI)ekranAcikTut();
   if(!PI_EKRANI&&!misafir)API("POST","/api/saat",{ms:Date.now()}).catch(()=>{});
   if(!_yoklama)_yoklama=setInterval(()=>{if(!document.hidden&&S.ben)denetle()},3000);
   sonEtkilesim=Date.now();
@@ -1287,10 +1285,13 @@ const kisiAd=()=>S.misafir?(kimlikGecerli()?S.kimlik.ad.split(" ")[0]:"Ortak"):(
 let sonEtkilesim=Date.now();
 ["pointerdown","keydown","touchstart"].forEach(t=>document.addEventListener(t,()=>{sonEtkilesim=Date.now()},{passive:true}));
 if(PI_EKRANI)setInterval(()=>{
-  if(S.ben&&Date.now()-sonEtkilesim>5*60*1000){
-    if(S.misafir){S.kimlik=null;girisGoster(false)}else{cikis();toast("Yönetici oturumu kapandı, stok panosuna dönüldü")}}
-  /* Tuş takımı açık bırakılırsa 1 dakika sonra panoya dön */
-  else if(!S.ben&&!_vt.acik&&document.querySelector(".tus")&&Date.now()-sonEtkilesim>60*1000)vitrinGoster();
+  const bos=Date.now()-sonEtkilesim;
+  /* Pi ekranı hep uygulamada kalır. 5 dk dokunulmazsa: yönetici çıkar, kimlik unutulur, açık pencere kapanır, panele dönülür */
+  if(S.ben&&bos>5*60*1000){
+    if(!S.misafir){cikis();toast("Yönetici oturumu kapandı")}
+    else if(S.kimlik||layer.innerHTML||S.tab!=="panel"){S.kimlik=null;kapat();S.tab="panel";setSync(true,"Bağlı · Ortak");render()}}
+  /* Yönetici tuş takımı açık bırakılırsa 1 dakika sonra uygulamaya dön */
+  else if(!S.ben&&document.querySelector(".tus")&&bos>60*1000)misafirAc();
 },10000);
 
 /* ---------- Vitrin (Pi ekranı stok panosu) ---------- */
@@ -1313,7 +1314,7 @@ function vitrinGoster(){
   app.innerHTML=`<div class="vt-bos">Stok panosu yükleniyor…</div>`;
   clearInterval(_vt.yokla);clearInterval(_vt.saat);
   const yukle=async()=>{
-    try{const v=await API("GET","/api/vitrin");
+    try{const v=await API("GET","/api/vitrin");uygDenetle(v.uyg);
       if(!_vt.acik)return;
       /* Kayıt değiştiyse ya da dakikada bir (ilerleme çubukları için) yeniden çiz */
       if(v.surum!==_vt.surum||Date.now()-_vt.son>60000){_vt.veri=v;_vt.surum=v.surum;_vt.son=Date.now();vitrinCiz()}
@@ -1348,9 +1349,7 @@ function vitrinCiz(){
     <div class="vt-stok" id="vtStok">${L.length?L.map(kart).join(""):`<div class="vt-bos">Stokta kayıtlı malzeme yok. Sistemi açıp Stok bölümünden ekleyin.</div>`}</div>
     <aside class="vt-yan">
       <div class="vt-ozet"><div><b>${L.length}</b><span>makara</span></div><div><b>${top>=1000?nf1.format(top/1000):nf0.format(top)}</b><span>${top>=1000?"kg":"g"} stok</span></div><div class="${kr?"kr":""}"><b>${kr}</b><span>kritik</span></div></div>
-      ${v.sifre?`<div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=wifi&s=${encodeURIComponent(v.sifre||"")}" alt="Wi-Fi karekodu"></div><b>1 · Wi-Fi'ye bağlan</b><span>Ağ <span class="num">${esc(v.ssid)}</span><br>Şifre <span class="num">${esc(v.sifre)}</span></span></div>`
-      :`<div class="vt-kutu"><b>1 · Wi-Fi'ye bağlan</b><span>Ağ <span class="num">${esc(v.ssid||"—")}</span></span></div>`}
-      <div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=adres" alt="Adres karekodu"></div><b>2 · Sistemi aç</b><span class="num">${esc((v.adres||"").replace(/^https?:\/\//,""))}</span></div>
+      <div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=adres" alt="Adres karekodu"></div><b>Telefondan aç</b><span class="num">${esc((v.adres||"").replace(/^https?:\/\//,""))}</span></div>
       <button class="btn pri vt-giris" data-vt="giris">Sistemi aç</button>
     </aside></div>`;
   vitrinSaat();vitrinKaydir();
@@ -1465,6 +1464,9 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){const lb=document.q
 /* ---------- Başlatma ---------- */
 S.db=DB;S.assets=ASSETS;S.downloads=DOWNLOADS;S.user=null;S.canWrite=false;
 let _yenileniyor=false;
+/* Güncelleme sonrası açık ekran eski sayfada kalmasın: arayüz dosyası değişince sayfayı yenile */
+let _uyg=null;
+function uygDenetle(u){if(!u)return;if(_uyg===null){_uyg=u;return}if(u!==_uyg&&!layer.innerHTML&&!document.querySelector(".kimlik-katman"))location.reload()}
 async function yenile(){
   if(_yenileniyor)return;_yenileniyor=true;
   try{const h=await API("GET","/api/hepsi");
@@ -1474,7 +1476,7 @@ async function yenile(){
   finally{_yenileniyor=false}
 }
 async function denetle(){
-  try{const r=await API("GET","/api/surum");if(S.ben)setSync(true,"Bağlı · "+kisiAd());if(r.surum!==S.surum)yenile()}
+  try{const r=await API("GET","/api/surum");uygDenetle(r.uyg);if(S.ben)setSync(true,"Bağlı · "+kisiAd());if(r.surum!==S.surum)yenile()}
   catch(e){if(e.code==="ag")setSync(false,"Pi'ye ulaşılamıyor")}
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.ben)denetle()});

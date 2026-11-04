@@ -216,6 +216,14 @@ def ag_durum():
     return v
 
 
+def uygulama_surumu():
+    """Arayüz dosyası değişince (güncelleme) açık ekranlar kendini yenilesin diye değişen işaret."""
+    try:
+        return int(os.path.getmtime(os.path.join(KOK, "index.html")))
+    except Exception:
+        return 0
+
+
 def wifi_bilgi():
     # Pi bir Wi-Fi'ye bağlıysa (hotspot) gerçek adresi göster; şifre bilinmez, gösterilmez
     a = ag_durum()
@@ -267,7 +275,7 @@ def vitrin():
     sira = sum(1 for d in h["isler"] if d.get("durum") == "sira")
     yaz = (h["ayar"] or {}).get("yazicilar") or []
     w = wifi_bilgi()
-    return {"stok": stok, "aktif": aktif, "sira": sira, "yazicilar": yaz, "surum": h["surum"],
+    return {"stok": stok, "aktif": aktif, "sira": sira, "yazicilar": yaz, "surum": h["surum"], "uyg": uygulama_surumu(),
             "ssid": w["ssid"], "sifre": w["sifre"], "adres": w["adres"], "saat": simdi_ms()}
 
 
@@ -471,7 +479,7 @@ class Isleyici(BaseHTTPRequestHandler):
         if p == "/api/vitrin":
             return self.gonder(200, vitrin())
         if p == "/api/surum":
-            return self.gonder(200, {"surum": surum_oku()})
+            return self.gonder(200, {"surum": surum_oku(), "uyg": uygulama_surumu()})
         if p == "/api/hepsi":
             return self.gonder(200, hepsi())
         if p == "/api/sistem":
