@@ -1,0 +1,349 @@
+{
+ "surum": "2026-11-04-sayim",
+ "kaldirilacakYazicilar": [
+  "Bambu Lab H2S Combo"
+ ],
+ "stok": [
+  {
+   "malzeme": "PETG",
+   "marka": "Creality Hyper PETG",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 26000,
+   "baslangicGr": 26000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "ABS",
+   "marka": "Creality Hyper ABS",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Creality Hyper PLA-CF",
+   "renk": "Siyah",
+   "renkHex": "#222222",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 8000,
+   "baslangicGr": 8000,
+   "kritikGr": 1000
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Creality Hyper PLA",
+   "renk": "Mavi",
+   "renkHex": "#1f5fbf",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Creality Hyper PLA RFID",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Creality Hyper Lightweight PLA",
+   "renk": "Beyaz",
+   "renkHex": "#f4f4f0",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 5000,
+   "baslangicGr": 5000,
+   "kritikGr": 1000
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Creality EN-PLA+",
+   "renk": "Beyaz",
+   "renkHex": "#f4f4f0",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 3000,
+   "baslangicGr": 3000,
+   "kritikGr": 1000
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Creality CR-PLA",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PETG",
+   "marka": "Creality CR-PETG",
+   "renk": "Kırmızı",
+   "renkHex": "#b3122a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "TPU",
+   "marka": "Creality CR-TPU",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix Hyper PLA+",
+   "renk": "Gök mavisi",
+   "renkHex": "#7ec8e3",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix Hyper PLA+",
+   "renk": "Gri",
+   "renkHex": "#9a9a9a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix Hyper PLA+",
+   "renk": "Mavi",
+   "renkHex": "#1e3fd0",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix Hyper PLA+",
+   "renk": "Kemik beyazı",
+   "renkHex": "#e6dcc8",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix Hyper PLA+",
+   "renk": "Siyahımsı yeşil",
+   "renkHex": "#2f3b33",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix PLA+",
+   "renk": "Kemik beyazı",
+   "renkHex": "#e6dcc8",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 3000,
+   "baslangicGr": 3000,
+   "kritikGr": 1000
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "Filamix PLA+",
+   "renk": "Yeşil elma",
+   "renkHex": "#5fd03a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA",
+   "marka": "Filamix PLA Glow",
+   "renk": "Turuncu",
+   "renkHex": "#ff9f6b",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PLA+",
+   "marka": "eSUN PLA+HS",
+   "renk": "Kemik beyazı",
+   "renkHex": "#ddd3bd",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "ABS",
+   "marka": "Sunlu ABS",
+   "renk": "Gümüş",
+   "renkHex": "#b8bcc0",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "ASA",
+   "marka": "Sunlu ASA",
+   "renk": "Kırmızı",
+   "renkHex": "#c8102e",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PA / Naylon",
+   "marka": "Sunlu PA6-GF",
+   "renk": "Gri",
+   "renkHex": "#8a8d90",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 1000,
+   "baslangicGr": 1000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PA / Naylon",
+   "marka": "Fiberon PA6-CF20",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 500,
+   "baslangicGr": 500,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "Diğer",
+   "marka": "Porima HIPS",
+   "renk": "Natural",
+   "renkHex": "#efefe8",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "PETG",
+   "marka": "Filetto PETG",
+   "renk": "Sarı",
+   "renkHex": "#f2c500",
+   "cap": "1,75 mm",
+   "birimFiyatKg": 0,
+   "kalanGr": 2000,
+   "baslangicGr": 2000,
+   "kritikGr": 200
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic DLP Craftsman",
+   "renk": "Beyaz",
+   "renkHex": "#f4f4f0",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 17000,
+   "baslangicGr": 17000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic (SABP2WH)",
+   "renk": "Beyaz",
+   "renkHex": "#f4f4f0",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 15000,
+   "baslangicGr": 15000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic (SSXAB3BK)",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 15000,
+   "baslangicGr": 15000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic ABS-Like",
+   "renk": "Gri / şeffaf",
+   "renkHex": "#9a9a9a",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 11000,
+   "baslangicGr": 11000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic ABS-Like",
+   "renk": "Siyah",
+   "renkHex": "#1a1a1a",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 31000,
+   "baslangicGr": 31000,
+   "kritikGr": 3000
+  },
+  {
+   "malzeme": "Reçine",
+   "marka": "Anycubic ABS-Like Pro (SABP2BK)",
+   "renk": "Kırmızı yazan kutular",
+   "renkHex": "#1a1a1a",
+   "cap": "1 kg şişe",
+   "birimFiyatKg": 0,
+   "kalanGr": 10000,
+   "baslangicGr": 10000,
+   "kritikGr": 3000
+  }
+ ]
+}

@@ -16,3 +16,4 @@ fonts/ibm-plex-sans-latin-ext-600-normal.woff2
 logo-varsayilan.png
 uretim-saat.sh
 uretim-wifi.sh
+stok-ilk.json

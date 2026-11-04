@@ -70,7 +70,7 @@ def kur_db():
         c.execute("CREATE TABLE IF NOT EXISTS oturum (token TEXT PRIMARY KEY, kullanici TEXT NOT NULL, olusturma INTEGER, son INTEGER)")
         c.execute("INSERT OR IGNORE INTO meta VALUES ('surum','0')")
         if not c.execute("SELECT 1 FROM belge WHERE kol='ayar' AND id='genel'").fetchone():
-            ilk = {"yazicilar": ["Bambu Lab H2S Combo", "Bambu Lab H2D Combo",
+            ilk = {"yazicilar": ["Bambu Lab H2D Combo",
                                  "Bambu Lab H2D Combo + 40 W Lazer", "Phrozen Sonic Mega 8K V2"]}
             c.execute("INSERT INTO belge VALUES ('ayar','genel',?)", (json.dumps(ilk, ensure_ascii=False),))
 
@@ -78,6 +78,32 @@ def kur_db():
 # ---------------- kullanıcı / oturum ----------------
 def pin_ozet(pin, tuz):
     return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(tuz), 120_000).hex()
+
+
+def toplu_sayim_yukle():
+    """Repodaki stok-ilk.json (raf sayımı) bir kez veritabanına eklenir; satılan yazıcılar listeden çıkarılır."""
+    yol = os.path.join(KOK, "stok-ilk.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return
+    isaret = os.path.join(VERI, "sayim-" + re.sub(r"[^A-Za-z0-9-]", "", str(d.get("surum", ""))) + ".yapildi")
+    if os.path.exists(isaret):
+        return
+    with kilit, baglan() as c:
+        zaman = simdi_ms()
+        for k in d.get("stok", []):
+            k = dict(k, olusturan="Raf sayımı", olusturanZaman=zaman, guncelleme=zaman)
+            c.execute("INSERT INTO belge VALUES ('stok',?,?)", (secrets.token_hex(8), json.dumps(k, ensure_ascii=False)))
+        r = c.execute("SELECT veri FROM belge WHERE kol='ayar' AND id='genel'").fetchone()
+        if r and d.get("kaldirilacakYazicilar"):
+            a = json.loads(r[0])
+            a["yazicilar"] = [y for y in a.get("yazicilar", []) if y not in d["kaldirilacakYazicilar"]]
+            c.execute("UPDATE belge SET veri=? WHERE kol='ayar' AND id='genel'", (json.dumps(a, ensure_ascii=False),))
+        surum_arttir(c)
+    with open(isaret, "w") as f:
+        f.write(str(simdi_ms()))
 
 
 def kullanici_sayisi(c):
@@ -1078,6 +1104,7 @@ class Isleyici(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     kur_db()
+    toplu_sayim_yukle()
     ag_onceligi()
     bambu_baslat()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Isleyici)
