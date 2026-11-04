@@ -1087,7 +1087,7 @@ class Isleyici(BaseHTTPRequestHandler):
                 return self.hata(400, "gecersiz_veri")
             seri = str(v.get("seri", "")).strip()
             kod = str(v.get("kod", "")).strip()
-            yazici = ad_temizle(v.get("yazici", ""))
+            yazici = re.sub(r"\s+", " ", str(v.get("yazici") or "")).strip()[:120]
             if not re.match(r"^[A-Za-z0-9]{8,20}$", seri) or (kod and not re.match(r"^[A-Za-z0-9]{6,12}$", kod)):
                 return self.hata(400, "gecersiz_veri")
             with kilit:

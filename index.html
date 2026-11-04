@@ -649,7 +649,9 @@ function malzemeDagilim(L){
   return `<div class="hbar">${E.map(([k,v])=>`<div class="hbar-s"><span>${esc(k)}</span><span class="iz"><i style="width:${(v/E[0][1]*100).toFixed(1)}%"></i></span><span class="num">${gr(v)}</span></div>`).join("")}</div>`;
 }
 const BAMBU_DURUM={RUNNING:"Baskıda",PREPARE:"Hazırlanıyor",SLICING:"Hazırlanıyor",PAUSE:"Duraklatıldı",FINISH:"Bitti",FAILED:"Hata verdi",IDLE:"Boşta"};
-const bambuCanli=p=>S.bambu&&(S.bambu.yazicilar||[]).find(x=>x.yazici===p&&x.bagli&&x.durum);
+/* Yazıcı adları boşluk/büyük-küçük harf/uzunluk farkıyla eşleşmeyebilir; karşılaştırmayı sadeleştirerek yap */
+const yzAnahtar=t=>String(t||"").replace(/\s+/g," ").trim().slice(0,40).toLocaleLowerCase("tr");
+const bambuCanli=p=>S.bambu&&(S.bambu.yazicilar||[]).find(x=>yzAnahtar(x.yazici)===yzAnahtar(p)&&x.bagli&&x.durum);
 function yaziciKart(p,j){
   const b=bambuCanli(p);
   if(b){
@@ -660,13 +662,16 @@ function yaziciKart(p,j){
       ${j?`<button class="is" data-act="is" data-id="${j.id}">${esc(j.ad)}</button>`:b.is&&b.durum!=="IDLE"?`<div class="kalan" style="color:var(--fg);font-weight:600;overflow-wrap:anywhere">${esc(b.is)}</div>`:""}
       ${calisiyor||b.durum==="FINISH"?`<div class="ilerleme" role="progressbar" aria-valuenow="${y}" aria-valuemin="0" aria-valuemax="100"><i style="width:${y}%"></i></div>`:""}
       <div class="kalan">${alt||(j?"":"Yeni iş başlatılabilir")}</div></div>`}
+  /* Bambu ile eşleşmiş ama canlı veri gelmeyen yazıcıda sebebi kartta göster */
+  const bk=S.bambu&&(S.bambu.yazicilar||[]).find(x=>yzAnahtar(x.yazici)===yzAnahtar(p));
+  const bNot=bk?`<div class="kalan" style="color:var(--bad)">${bk.bagli?"Yazıcıya bağlı, durum bekleniyor":"Yazıcıya bağlanılamadı"+(bk.hata?": "+esc(bk.hata):"")}</div>`:"";
   let ek="";
   if(j&&j.baslangic&&j.tahminiSure){const top=j.tahminiSure*3600000,gec=Date.now()-j.baslangic,o=Math.max(0,Math.min(1,gec/top)),kal=top-gec;
     ek=`<div class="ilerleme" role="progressbar" aria-valuenow="${Math.round(o*100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(o*100).toFixed(1)}%"></i></div>
       <div class="kalan">${kal>60000?"Tahmini kalan "+sure(kal/3600000):"Tahmini süre doldu"}</div>`}
   else if(j)ek=`<div class="kalan">Başladı ${saat(j.baslangic)}</div>`;
   return `<div class="prn ${j?"busy":""}"><div class="prn-ust"><span class="prn-ik">${IK.yazici}</span><div style="min-width:0"><div class="n">${esc(p)}</div><div class="durum"><i></i>${j?"Baskıda":"Boşta"}</div></div></div>
-    ${j?`<button class="is" data-act="is" data-id="${j.id}">${esc(j.ad)}</button>${ek}`:`<div class="kalan">Yeni iş başlatılabilir</div>`}</div>`;
+    ${j?`<button class="is" data-act="is" data-id="${j.id}">${esc(j.ad)}</button>${ek}`:`<div class="kalan">Yeni iş başlatılabilir</div>`}${bNot}</div>`;
 }
 function altBilgi(){
   return `<footer class="alt-bilgi"><img src="/logo" alt="" onerror="this.hidden=true"><div><b>Yapı İşleri ve Teknik Daire Başkanlığı</b><br>AR-GE Birimi · 3D Teknoloji${S.sistem&&S.sistem.surumKod?" · Sürüm "+esc(S.sistem.surumKod):""}</div></footer>`;
@@ -1211,6 +1216,7 @@ function bambuListe(){
   return `<div class="list">${L.map(x=>{const k=x.kayit;
     const durum=!k?`<span class="pill p-sira">Bağlanmadı</span>`:k.bagli?`<span class="pill p-baski">Bağlı${k.durum?" · "+(BAMBU_DURUM[k.durum]||k.durum):""}</span>`:`<span class="pill p-hata">Bağlantı yok</span>`;
     return `<div class="item" style="display:block"><div class="row sp"><div style="min-width:0"><div class="t">${esc(x.ad||x.model||"Bambu yazıcı")}${k&&k.yazici?` → ${esc(k.yazici)}`:""}</div>
+      ${k&&!yazicilar().some(p=>yzAnahtar(p)===yzAnahtar(k.yazici))?`<div style="font-size:12px;color:var(--bad);margin-top:2px">Eşleştirilen yazıcı listede yok; "Düzenle"den yeniden seçin.</div>`:""}
       <div class="s num" style="font-size:12px;color:var(--muted)">${esc(x.seri)}${x.ip?" · "+esc(x.ip):""}</div>${k&&k.hata?`<div style="font-size:12px;color:var(--bad);margin-top:2px">${esc(k.hata)}</div>`:""}</div>
       <div class="row" style="gap:6px">${durum}<button class="btn sm" data-bseri="${esc(x.seri)}">${k?"Düzenle":"Bağla"}</button></div></div><div data-bform="${esc(x.seri)}"></div></div>`}).join("")}</div>`;
 }
@@ -1218,7 +1224,7 @@ function bambuOlay(alan){
   alan.querySelectorAll("[data-bseri]").forEach(b=>b.onclick=()=>{
     const seri=b.dataset.bseri,k=((S.bambu||{}).yazicilar||[]).find(x=>x.seri===seri),f=alan.querySelector(`[data-bform="${seri}"]`);
     f.innerHTML=`<form class="form" style="margin-top:10px" novalidate>
-      <div class="fld"><label>Uygulamadaki yazıcı</label><select name="yz">${yazicilar().map(p=>`<option ${k&&k.yazici===p?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Uygulamadaki yazıcı</label><select name="yz">${yazicilar().map(p=>`<option value="${esc(p)}" ${k&&yzAnahtar(k.yazici)===yzAnahtar(p)?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
       <div class="fld"><label>Erişim kodu${k?" (değiştirmeyecekseniz boş bırakın)":""}</label><input name="kod" inputmode="text" autocomplete="off" maxlength="12" placeholder="Yazıcı ekranındaki 8 haneli kod"></div>
       <div class="err" role="alert"></div>
       <div class="row" style="gap:8px">${k?`<button type="button" class="btn danger sm" data-bsil>Kaldır</button>`:""}<button type="button" class="btn sm" data-biptal>Vazgeç</button><button class="btn pri sm">Kaydet</button></div></form>`;
