@@ -192,9 +192,46 @@ def sistem_dosya(ad):
         return None
 
 
+_ag_onbellek = {"t": 0, "v": None}
+
+
+def ag_durum():
+    """Pi şu an hangi ağda: kendi ağını mı yayıyor, yoksa bir Wi-Fi'ye (telefon hotspot'u) mu bağlı. 10 sn önbellek."""
+    if time.time() - _ag_onbellek["t"] < 10:
+        return _ag_onbellek["v"]
+    v = None
+    try:
+        ip = subprocess.run(["ip", "-4", "-o", "addr", "show", "wlan0"], capture_output=True, text=True, timeout=3).stdout
+        m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", ip)
+        if m and m.group(1) != "10.42.0.1":
+            ssid = ""
+            for satir in subprocess.run(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"], capture_output=True,
+                                        text=True, timeout=5).stdout.splitlines():
+                if satir.startswith("yes:") or satir.startswith("evet:"):
+                    ssid = satir.split(":", 1)[1]; break
+            v = {"ssid": ssid, "sifre": "", "adres": "http://" + m.group(1)}
+    except Exception:
+        v = None
+    _ag_onbellek.update(t=time.time(), v=v)
+    return v
+
+
 def wifi_bilgi():
+    # Pi bir Wi-Fi'ye bağlıysa (hotspot) gerçek adresi göster; şifre bilinmez, gösterilmez
+    a = ag_durum()
+    if a:
+        return a
     d = sistem_dosya("wifi.json") or {}
     return {"ssid": d.get("ssid", ""), "sifre": d.get("sifre", ""), "adres": d.get("adres", "http://10.42.0.1")}
+
+
+def ag_onceligi():
+    """Açılışta: kayıtlı Wi-Fi (telefon hotspot'u) önce, Pi'nin kendi ağı yedek. Ayar zaten öyleyse bir şey yapmaz."""
+    try:
+        subprocess.Popen(["sudo", "-n", "/usr/local/bin/uretim-wifi", "oncelik"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 
 
 def qr_svg(metin):
@@ -244,7 +281,9 @@ def disk_durum():
 
 
 # Giriş yapmadan açılabilen yollar
-ACIK = {"/", "/index.html", "/logo", "/api/oturum", "/api/giris", "/api/kurulum", "/api/kurulum-dosya", "/api/cikis"}
+ACIK = {"/", "/index.html", "/logo", "/api/oturum", "/api/giris", "/api/kurulum", "/api/kurulum-dosya", "/api/cikis", "/api/kimlik"}
+# Sistem herkese açık: okuma girişsiz. Stok/üretim değişikliği kişinin kayıtlı telefon numarasıyla (X-Telefon) ya da oturumla yapılır.
+# Yönetici işlemleri (kullanıcılar, ayarlar, güncelleme) yine telefon + PIN ile açılan yönetici oturumu ister.
 # Pi'nin kendi ekranı (vitrin) girişsiz görebilir; Wi-Fi'deki cihazlar bu adreslerden gelemez
 YEREL = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 VITRIN_YOLLARI = {"/api/vitrin", "/qr.svg"}
@@ -284,12 +323,16 @@ class Isleyici(BaseHTTPRequestHandler):
 
     def hata(self, kod, mesaj, **ek):
         d = {"hata": mesaj}; d.update(ek)
+        # Gövdesi okunmadan reddedilen istekte bağlantıyı kapat; yoksa okunmamış gövde sonraki isteğe karışır
+        if not self.__dict__.get("_okundu") and int(self.headers.get("Content-Length") or 0) > 0:
+            self.close_connection = True
         self.gonder(kod, d)
 
     def oku(self, sinir):
         n = int(self.headers.get("Content-Length") or 0)
         if n > sinir:
             raise ValueError("cok_buyuk")
+        self._okundu = True
         return self.rfile.read(n) if n else b""
 
     def json_oku(self):
@@ -339,27 +382,57 @@ class Isleyici(BaseHTTPRequestHandler):
     def cerez_yaz(self, token, sure):
         return {"Set-Cookie": "%s=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d" % (CEREZ, token, sure)}
 
+    def telefon_kisi(self):
+        """X-Telefon başlığındaki numaranın sahibi (aktif kullanıcı) ya da None."""
+        tel = telefon_temizle(self.headers.get("X-Telefon"))
+        if not tel:
+            return None
+        with baglan() as c:
+            r = c.execute("SELECT id, ad, rol FROM kullanici WHERE telefon=? AND aktif=1", (tel,)).fetchone()
+        return {"id": r[0], "ad": r[1], "rol": r[2]} if r else None
+
+    def kim(self):
+        """Değişikliği yapan kişi: oturum varsa o, yoksa telefon numarasının sahibi."""
+        if not hasattr(self, "_kim"):
+            self._kim = self.ben() or self.telefon_kisi()
+        return self._kim
+
     def yetki(self, yontem, yol):
         """Erişim denetimi. True -> devam; False -> yanıt gönderildi."""
         # Aynı bağlantıdan gelen her istekte oturum yeniden okunur (HTTP/1.1 bağlantı yeniden kullanımı)
         self.__dict__.pop("_ben", None)
+        self.__dict__.pop("_kim", None)
+        self.__dict__.pop("_okundu", None)
         if yol in ACIK or yol.startswith("/fonts/"):
             return True
-        if yol in VITRIN_YOLLARI and yontem == "GET" and self.ip() in YEREL:
+        yonetici_yolu = any((y is None or y == yontem) and desen.match(yol) for y, desen in YONETICI)
+        if yontem in ("GET", "HEAD") and not yonetici_yolu:
+            return True                      # okuma herkese açık
+        if yonetici_yolu or yol in IZLEYICI_YAZMA:
+            b = self.ben()
+            if not b:
+                self.hata(401, "oturum")
+                return False
+            if yonetici_yolu and b["rol"] != "yonetici":
+                self.hata(403, "yetki")
+                return False
             return True
-        b = self.ben()
-        if not b:
-            self.hata(401, "oturum")
+        # stok / üretim / fotoğraf değişikliği: oturum ya da kayıtlı telefon numarası
+        anahtar = "ip:" + self.ip()
+        if not self.ben() and self.headers.get("X-Telefon"):
+            kalan = kilitli_mi(anahtar)
+            if kalan:
+                self.hata(429, "kilitli", saniye=kalan)
+                return False
+        k = self.kim()
+        if not k:
+            if self.headers.get("X-Telefon"):
+                hatali_say(anahtar)
+            self.hata(401, "kimlik")
             return False
-        yazma = yontem in ("POST", "PUT", "PATCH", "DELETE")
-        if b["rol"] == "izleyici" and yazma and yol not in IZLEYICI_YAZMA:
+        if k["rol"] == "izleyici":
             self.hata(403, "yetki")
             return False
-        if b["rol"] != "yonetici":
-            for y, desen in YONETICI:
-                if (y is None or y == yontem) and desen.match(yol):
-                    self.hata(403, "yetki")
-                    return False
         return True
 
     # ---- GET
@@ -419,6 +492,8 @@ class Isleyici(BaseHTTPRequestHandler):
             q = parse_qs(u.query)
             w = wifi_bilgi()
             if q.get("t", [""])[0] == "wifi":
+                if not w["sifre"]:
+                    return self.hata(404, "qr_yok")
                 metin = "WIFI:T:WPA;S:%s;P:%s;;" % (w["ssid"].replace(";", r"\;"), w["sifre"].replace(";", r"\;"))
             else:
                 metin = w["adres"]
@@ -483,11 +558,13 @@ class Isleyici(BaseHTTPRequestHandler):
             veri = self.json_oku() if islem != "delete" else None
         except Exception:
             return self.hata(400, "gecersiz_veri")
-        kim = self.ben()["ad"]
+        kim = self.kim()["ad"]
         if veri is not None:
             for k in ("id", "olusturan", "olusturanZaman"):
                 veri.pop(k, None)
             veri["degistiren"] = kim
+            if "bitiren" in veri:
+                veri["bitiren"] = kim
         with kilit, baglan() as c:
             r = c.execute("SELECT veri FROM belge WHERE kol=? AND id=?", (kol, i)).fetchone()
             eski = json.loads(r[0]) if r else None
@@ -604,6 +681,22 @@ class Isleyici(BaseHTTPRequestHandler):
             with kilit, baglan() as c:
                 t = oturum_ac(c, r[0])
             return self.gonder(200, {"giris": True, "ben": {"id": r[0], "ad": r[1], "rol": r[2]}}, ek=self.cerez_yaz(t, OTURUM_SURE))
+        if p == "/api/kimlik":
+            # Değişiklik yapmadan önce telefon numarasını doğrular; kimin kayıtlı olduğu dışarıdan sayılamasın diye kilitli
+            anahtar = "ip:" + self.ip()
+            kalan = kilitli_mi(anahtar)
+            if kalan:
+                return self.hata(429, "kilitli", saniye=kalan)
+            tel = telefon_temizle(d.get("telefon"))
+            r = None
+            if tel:
+                with baglan() as c:
+                    r = c.execute("SELECT ad, rol FROM kullanici WHERE telefon=? AND aktif=1", (tel,)).fetchone()
+            if not r or r[1] == "izleyici":
+                hatali_say(anahtar)
+                return self.hata(401, "kimlik")
+            hatali_sifirla(anahtar)
+            return self.gonder(200, {"ad": r[0], "rol": r[1]})
         if p == "/api/cikis":
             t = self.token()
             if t:
@@ -650,7 +743,7 @@ class Isleyici(BaseHTTPRequestHandler):
                 fark = float(d.get("fark") or 0)
             except Exception:
                 return self.hata(400, "gecersiz_veri")
-            return self.gonder(200, {"kalanGr": stok_degis(sid, fark, self.ben()["ad"])})
+            return self.gonder(200, {"kalanGr": stok_degis(sid, fark, self.kim()["ad"])})
         if p == "/api/saat":
             return self.gonder(200, {"duzeltildi": saat_esitle(d.get("ms", 0))})
         if p == "/api/guncelle":
@@ -724,6 +817,7 @@ class Isleyici(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     kur_db()
+    ag_onceligi()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Isleyici)
     srv.daemon_threads = True
     print("3D Üretim Takip %s port %d, veri: %s" % (SURUM_KOD, PORT, VERI), flush=True)

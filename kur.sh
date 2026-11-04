@@ -103,7 +103,7 @@ nmcli con delete uretim-ap >/dev/null 2>&1 || true
 nmcli con add type wifi ifname wlan0 con-name uretim-ap autoconnect yes ssid "$SSID" \
   802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 \
   ipv4.method shared ipv4.addresses 10.42.0.1/24 ipv6.method disabled \
-  wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$SIFRE" connection.autoconnect-priority 100 >/dev/null
+  wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$SIFRE" connection.autoconnect-priority -10 >/dev/null
 cat > "$VERI/wifi.json" <<EOF
 {"ssid": "$SSID", "sifre": "$SIFRE", "adres": "http://10.42.0.1"}
 EOF

@@ -22,16 +22,18 @@ print(json.dumps({"zaman": int(time.time()*1000), "durum": sys.argv[1], "mesaj":
 EOF
   chown "$SAHIP:$SAHIP" "$VERI/guncelleme-durum.json"
 }
-agi_ac(){ nmcli con up uretim-ap >/dev/null 2>&1 || true; }
+# Güncelleme bitince: Pi internetteyse (hotspot) öyle kalsın; değilse kendi ağını aç
+agi_ac(){ internet || nmcli con up uretim-ap >/dev/null 2>&1 || true; }
 internet(){ curl -fsI --max-time 6 "$DEPO/dosyalar.txt" >/dev/null 2>&1; }
 
 durum calisiyor "Güncelleme başladı, internete bağlanılıyor."
-nmcli con down uretim-ap >/dev/null 2>&1 || true
-sleep 3
-
+# Pi zaten internetteyse (telefon hotspot'una bağlı) ağa dokunma
 BAGLANDI=0
+internet && BAGLANDI=1
+[ $BAGLANDI = 0 ] && { nmcli con down uretim-ap >/dev/null 2>&1 || true; sleep 3; }
+
 # Kayıtlı Wi-Fi ağlarını (hotspot dahil) sırayla dene
-while IFS=: read -r ad tur; do
+[ $BAGLANDI = 0 ] && while IFS=: read -r ad tur; do
   [ "$tur" = "802-11-wireless" ] || continue
   [ "$ad" = "uretim-ap" ] && continue
   nmcli --wait 25 con up id "$ad" >/dev/null 2>&1 || continue

@@ -372,6 +372,57 @@ body.vitrin main{max-width:none;padding:10px 12px;gap:0}
 .prev{display:flex;gap:6px;flex-wrap:wrap}
 .prev img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+/* Küçük yatay ekran (Pi'nin 7" 1024x600 dokunmatik ekranı): sıkı yerleşim */
+@media (min-width:900px) and (max-height:700px){
+  body{font-size:13.5px}
+  body:not(.kilitli){padding-left:178px}
+  nav.tabs{width:178px;padding:12px 10px 10px max(10px,env(safe-area-inset-left,0px))}
+  .yan-marka{gap:4px;padding:0 4px 10px;margin-bottom:10px}
+  .yan-marka img{width:34px;height:34px}
+  .yan-marka b{font-size:16px}
+  .yan-marka span{display:none}
+  .fab{padding:9px 10px;margin-bottom:8px;font-size:14px}
+  .tab{padding:8px 10px;font-size:14px;gap:10px}
+  .tab svg{width:19px;height:19px}
+  .yan-alt{padding:8px 10px}
+  header.top{padding-block:8px}
+  .sayfa h1{font-size:21px}
+  .sayfa p{font-size:12px}
+  main{padding-block:12px 18px;gap:14px}
+  .izgara,.sutun{gap:14px}
+  .hero{padding:12px 16px 20px;gap:10px;border-radius:14px;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .hero h1{font-size:22px;margin-top:2px}
+  .hero p{font-size:12.5px;margin-top:3px}
+  .hero-ust{font-size:11.5px}
+  .hero .kemer{width:120px;top:-10px}
+  .hero .dalga{height:16px}
+  .hero-sayilar{grid-template-columns:repeat(3,88px);gap:6px}
+  .hs{padding:5px 9px;border-radius:10px}
+  .hs .l{font-size:11px}
+  .hs .v{font-size:17px}
+  h2.sec{font-size:15px}
+  h2.sec small{font-size:12px}
+  .bolum{gap:8px}
+  .bolum-bas{min-height:26px}
+  .kpis{gap:8px}
+  .kpi{padding:9px 10px;border-radius:12px;gap:2px}
+  .kpi .ik{width:26px;height:26px;border-radius:8px;margin-bottom:2px}
+  .kpi .ik svg{width:15px;height:15px}
+  .kpi .v{font-size:17px}
+  .kpi .alt,.kpi .l{font-size:11px}
+  .printers{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+  .kart{padding:12px}
+  .baglan{padding:8px 10px;gap:10px}
+  .baglan .qr{width:72px;height:72px}
+  .baglan .bt{font-size:12.5px}
+  .baglan .bt b{font-size:13px}
+}
+.kimlik-katman{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}
+.kimlik-kutu{background:var(--bg);color:var(--fg);border-radius:18px;padding:18px;width:min(360px,100%);box-shadow:0 20px 60px rgba(0,0,0,.4);display:grid;gap:8px}
+.kimlik-kutu h3{margin:0;font-size:19px}.kimlik-kutu p{margin:0;font-size:14px;color:var(--muted)}
+.kimlik-kutu .ekran{font-family:var(--f-mono);font-size:22px;padding:10px 12px;border:2px solid var(--accent);border-radius:12px;text-align:center}
+.kimlik-kutu .ekran.bos{color:var(--muted)}.kimlik-kutu .err{min-height:18px;color:var(--danger,#c0392b);font-size:13px}
+@media (max-height:700px){.kimlik-kutu{padding:12px;gap:6px}.kimlik-kutu .tus button{height:46px;font-size:20px}}
 </style>
 </head>
 <body>
@@ -418,12 +469,15 @@ const num=v=>{if(v==null||v==="")return null;const x=parseFloat(String(v).replac
 const numIn=v=>{if(v==null||v==="")return null;const s=String(v).trim();const x=s.includes(",")?parseFloat(s.replace(/\./g,"").replace(",",".")):parseFloat(s);return isFinite(x)?x:null};
 const tarih=t=>t?new Date(t).toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";
 const saat=t=>t?new Date(t).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
-const sure=h=>{h=+h||0;const H=Math.floor(h),M=Math.round((h-H)*60);return (H?H+" sa ":"")+(M||!H?M+" dk":"")};
+const sure=h=>{h=+h||0;const top=Math.round(h*60),H=Math.floor(top/60),M=top%60;return (H?H+" sa ":"")+(M||!H?M+" dk":"")};
 const yazicilar=()=>(S.ayar&&Array.isArray(S.ayar.yazicilar)&&S.ayar.yazicilar.length)?S.ayar.yazicilar:VARSAYILAN_YAZICILAR;
 const stokBul=id=>S.stok.find(s=>s.id===id);
 const blob=id=>"/foto/"+id;
 const PI_EKRANI=["localhost","127.0.0.1","::1"].includes(location.hostname);
-const ROL_AD={yonetici:"Yönetici",personel:"Personel",izleyici:"Yalnızca görüntüler"};
+const ROL_AD={yonetici:"Yönetici",personel:"Personel",izleyici:"Yalnızca görüntüler",misafir:"Ortak kullanım"};
+/* Kimlik: girişsiz kullanımda değişiklik yapan kişinin kayıtlı telefonu. Pi ekranında 2 dk, telefonda 30 dk geçerli. */
+const KIMLIK_SURE=PI_EKRANI?2*60*1000:30*60*1000;
+const kimlikGecerli=()=>!!(S.kimlik&&Date.now()-S.kimlik.t<KIMLIK_SURE);
 const _sv=(d,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.9}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const IK={
   onay:_sv('<path d="M20 6 9 17l-5-5"/>',2.2),
@@ -442,16 +496,64 @@ const telGoster=t=>{t=String(t||"").replace(/\D/g,"");if(t.length===10)t="0"+t;
   return t.replace(/^(\d)(\d{3})(\d{0,3})(\d{0,2})(\d{0,2}).*$/,(m,a,b,c,d,e)=>[a+b,c,d,e].filter(Boolean).join(" "))};
 
 /* ---------- Pi sunucusu bağlantısı ---------- */
-async function API(m,u,b,ham){
-  let r;
-  try{r=await fetch(u,{method:m,cache:"no-store",
-    headers:ham?{"Content-Type":"image/jpeg"}:(b!==undefined?{"Content-Type":"application/json"}:{}),
+async function API(m,u,b,ham,tekrar){
+  let r;const bas=ham?{"Content-Type":"image/jpeg"}:(b!==undefined?{"Content-Type":"application/json"}:{});
+  const yazma=m!=="GET"&&m!=="HEAD";
+  if(yazma&&S.misafir&&kimlikGecerli()){bas["X-Telefon"]=S.kimlik.tel;S.kimlik.t=Date.now()}
+  try{r=await fetch(u,{method:m,cache:"no-store",headers:bas,
     body:ham?b:(b!==undefined?JSON.stringify(b):undefined)})}
   catch(e){throw {code:"ag"}}
   if(!r.ok){let h={};try{h=await r.json()}catch(_){}
-    if(r.status===401&&h.hata==="oturum"&&S.ben){girisGoster(false);toast("Oturum kapandı, yeniden giriş yapın")}
+    /* Girişsiz kullanımda değişiklik: telefon numarası sor, doğrulanınca aynı isteği yinele */
+    if(r.status===401&&h.hata==="kimlik"&&S.misafir&&!tekrar){
+      S.kimlik=null;
+      if(await kimlikSor())return API(m,u,b,ham,true);
+      throw {code:"iptal"}}
+    if(r.status===401&&h.hata==="oturum"&&S.ben&&!S.misafir){girisGoster(false);toast("Yönetici oturumu kapandı")}
     throw {code:h.hata||("http_"+r.status),saniye:h.saniye}}
   return r.json();
+}
+/* Telefon numarası sorma penceresi: açık formların üstünde ayrı katmanda durur, formu bozmaz */
+let _kimlikBekleyen=null;
+function kimlikSor(){
+  if(_kimlikBekleyen)return _kimlikBekleyen;
+  _kimlikBekleyen=new Promise(coz=>{
+    const k=document.createElement("div");k.className="kimlik-katman";k.setAttribute("role","dialog");k.setAttribute("aria-modal","true");
+    document.body.appendChild(k);
+    let tel="",hata="",mesgul=false;
+    const bitir=sonuc=>{k.remove();document.removeEventListener("keydown",tus,true);_kimlikBekleyen=null;coz(sonuc)};
+    const ciz=()=>{const ok=/^5\d{9}$/.test(tel);
+      k.innerHTML=`<div class="kimlik-kutu"><h3>Kim değiştiriyor?</h3>
+      <p>Kayıtlı cep telefonu numaranızı girin. Yaptığınız değişiklik bu numaranın sahibi adına kaydedilir.</p>
+      <div class="ekran etkin ${tel?"":"bos"}">${tel?esc(telGoster(tel)):"5xx xxx xx xx"}</div>
+      <div class="err" role="alert">${hata?esc(hata):""}</div>
+      <div class="tus">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}
+        <button class="geri" data-k="sil" aria-label="Sil">⌫</button><button data-k="0">0</button>
+        <button class="ok" data-k="ok" ${ok&&!mesgul?"":"disabled"}>${mesgul?"…":"Onayla"}</button></div>
+      <button class="btn sm" data-k="iptal" style="margin-top:10px;width:100%">Vazgeç</button></div>`};
+    const bas=async t=>{
+      if(mesgul)return;
+      if(t==="iptal")return bitir(false);
+      if(t==="sil"){tel=tel.slice(0,-1);hata="";return ciz()}
+      if(t==="ok"){if(!/^5\d{9}$/.test(tel))return;
+        mesgul=true;ciz();
+        try{const r=await fetch("/api/kimlik",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({telefon:tel})});
+          const h=await r.json().catch(()=>({}));mesgul=false;
+          if(r.ok){S.kimlik={tel,ad:h.ad,t:Date.now()};setSync(true,"Bağlı · "+h.ad.split(" ")[0]);toast(h.ad+" olarak kaydediliyor");return bitir(true)}
+          hata=h.hata==="kilitli"?`Çok fazla hatalı deneme. ${Math.ceil((h.saniye||300)/60)} dakika sonra tekrar deneyin.`:
+               h.hata==="kimlik"?"Bu numara kayıtlı değil ya da değişiklik yetkisi yok.":"Doğrulanamadı, tekrar deneyin.";
+          tel=""}
+        catch(e){mesgul=false;hata="Pi'ye ulaşılamadı."}
+        return ciz()}
+      if(/^\d$/.test(t)&&tel.length<10){if(!tel&&t==="0")return;tel+=t;hata="";ciz()}
+    };
+    const tus=e=>{if(/^\d$/.test(e.key))bas(e.key);else if(e.key==="Backspace")bas("sil");else if(e.key==="Enter")bas("ok");else if(e.key==="Escape")bas("iptal");else return;
+      e.preventDefault();e.stopPropagation()};
+    k.onclick=e=>{const b=e.target.closest("[data-k]");if(b)bas(b.dataset.k);else if(e.target===k)bas("iptal")};
+    document.addEventListener("keydown",tus,true);
+    ciz();
+  });
+  return _kimlikBekleyen;
 }
 const yeniId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 function ref(kol,id){
@@ -493,7 +595,7 @@ function ciz(){
   if(!S.db){app.innerHTML=`<div class="empty"><b>Veri bağlantısı kurulamadı</b>Pi'deki sunucuya ulaşılamıyor. Pi'nin açık olduğunu ve onun Wi-Fi ağına bağlı olduğunuzu kontrol edin.</div>`;return}
   const ro=S.canWrite?"":`<div class="ro">Bu sayfada yalnızca görüntüleme yetkiniz var; kayıt ekleyemez ve değiştiremezsiniz.</div>`;
   $("#sayfaBaslik").textContent=SAYFA[S.tab][0];$("#sayfaAlt").textContent=SAYFA[S.tab][1];
-  $("#yanKisi").innerHTML=`<b>${esc(S.ben.ad)}</b><span>${ROL_AD[S.ben.rol]} · Hesap ve sistem</span>`;
+  $("#yanKisi").innerHTML=S.misafir?`<b>${kimlikGecerli()?esc(S.kimlik.ad):"Ortak kullanım"}</b><span>Hesap ve sistem</span>`:`<b>${esc(S.ben.ad)}</b><span>${ROL_AD[S.ben.rol]} · Hesap ve sistem</span>`;
   if(S.tab==="panel")app.innerHTML=ro+panelHTML()+altBilgi();
   else if(S.tab==="uretim")app.innerHTML=ro+uretimHTML()+altBilgi();
   else app.innerHTML=ro+stokHTML()+altBilgi();
@@ -566,10 +668,10 @@ function panelHTML(){
   const w=S.sistem;
   const baglanKart=PI_EKRANI&&w&&w.ssid?`<div class="baglan">
     <figure class="qrf"><div class="qr"><img src="/qr.svg?t=wifi" alt="Wi-Fi karekodu" onerror="this.closest('figure').hidden=true"></div><figcaption>1 · Wi-Fi'ye bağlan</figcaption></figure>
-    <div class="bt">Telefonla bağlanmak için kamerayla karekodu okutun ya da <b>${esc(w.ssid)}</b> ağına <b>${esc(w.sifre)}</b> şifresiyle bağlanın. Sonra tarayıcıda <b>${esc(w.adres.replace(/^https?:\/\//,""))}</b> adresini açın.</div>
+    <div class="bt">Telefonla bağlanmak için kamerayla karekodu okutun ya da <b>${esc(w.ssid)}</b> ağına ${w.sifre?`<b>${esc(w.sifre)}</b> şifresiyle `:""}bağlanın. Sonra tarayıcıda <b>${esc(w.adres.replace(/^https?:\/\//,""))}</b> adresini açın.</div>
     <figure class="qrf"><div class="qr"><img src="/qr.svg?t=adres" alt="Adres karekodu" onerror="this.closest('figure').hidden=true"></div><figcaption>2 · Sistemi aç</figcaption></figure></div>`:"";
   const sa=new Date().getHours(),selam=sa<11?"Günaydın":sa<18?"İyi çalışmalar":"İyi akşamlar";
-  const ad=(S.ben&&S.ben.ad||"").split(" ")[0];
+  const ad=S.misafir?(kimlikGecerli()?S.kimlik.ad.split(" ")[0]:""):(S.ben&&S.ben.ad||"").split(" ")[0];
   const bugun=new Date().toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const ozet=(aktif.length?`Şu an ${aktif.length} yazıcıda baskı sürüyor`:"Şu an baskıda iş yok")+
     (sira.length?`, ${sira.length} iş sırada bekliyor`:"")+
@@ -954,15 +1056,17 @@ async function sistemFormu(){
   if(yon){try{kullanicilar=await API("GET","/api/kullanicilar")}catch(e){}}
   sheet(`<h3>Sistem</h3>
   <h2 class="sec" style="margin-top:14px">Hesabım</h2>
-  <div class="row sp" style="margin-top:8px"><div><b>${esc(S.ben.ad)}</b><div style="color:var(--muted);font-size:13px">${ROL_AD[S.ben.rol]}</div></div>
-    <div class="row"><button class="btn sm" id="pinDeg">PIN değiştir</button><button class="btn sm" id="cikis">Çıkış yap</button></div></div>
+  ${S.misafir?`<div class="row sp" style="margin-top:8px"><div><b>${kimlikGecerli()?esc(S.kimlik.ad):"Ortak kullanım"}</b><div style="color:var(--muted);font-size:13px">${kimlikGecerli()?"Değişiklikler bu kişi adına kaydediliyor":"Değişiklik yaparken telefon numaranız sorulur"}</div></div>
+    <div class="row">${kimlikGecerli()?`<button class="btn sm" id="kimlikUnut">Ben değilim</button>`:""}<button class="btn sm" id="yonGiris">Yönetici girişi</button></div></div>`
+  :`<div class="row sp" style="margin-top:8px"><div><b>${esc(S.ben.ad)}</b><div style="color:var(--muted);font-size:13px">${ROL_AD[S.ben.rol]}</div></div>
+    <div class="row"><button class="btn sm" id="pinDeg">PIN değiştir</button><button class="btn sm" id="cikis">Çıkış yap</button></div></div>`}
   <div id="pinAlan"></div>
   ${yon?`<div class="row sp" style="margin-top:16px"><h2 class="sec">Kullanıcılar</h2><button class="btn pri sm" id="kEkle">+ Kişi ekle</button></div>
   <div class="list" style="margin-top:8px">${kullanicilar.map(u=>`<button class="item" data-kid="${esc(u.id)}">
     <div class="body"><div class="t">${esc(u.ad)}${u.aktif?"":` <span class="pill p-hata">Kapalı</span>`}</div>
     <div class="s num">${esc(telGoster(u.telefon))}</div></div>
     <div class="r"><span class="pill ${u.rol==="yonetici"?"p-baski":"p-sira"}">${ROL_AD[u.rol]}</span><div class="s" style="font-size:12px;color:var(--muted);margin-top:4px">${u.sonGiris?"Son giriş "+saat(u.sonGiris):"Henüz girmedi"}</div></div></button>`).join("")}</div>
-  <p class="hint" style="font-size:13px;color:var(--muted);margin:6px 0 0">Yalnızca bu listedeki numaralar kendi PIN'leriyle giriş yapabilir. Bir kişiyi kapatınca o anki oturumu da sonlanır.</p>`:""}
+  <p class="hint" style="font-size:13px;color:var(--muted);margin:6px 0 0">Bu listedeki numaralar stok ve üretimde değişiklik yapabilir (izleyici hariç); değişiklik numara sahibinin adına kaydedilir. Yöneticiler ayrıca PIN'le giriş yapar.</p>`:""}
   ${yon?`<h2 class="sec" style="margin-top:16px">Logo</h2>
   <div class="row" style="margin-top:8px;gap:12px">
     ${w.logo?`<img src="/logo?t=${Date.now()}" alt="Yüklü logo" style="height:56px;max-width:120px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;border:1px solid var(--line)">`:`<span style="color:var(--muted)">Logo bulunamadı.</span>`}
@@ -981,14 +1085,16 @@ async function sistemFormu(){
   <button class="btn sm" id="yedekAl">Şimdi yedekle</button>
   ${yon?`<h2 class="sec" style="margin-top:16px">Güncelleme</h2>
   <p style="margin:6px 0">Sürüm ${esc(w.surumKod)}${g?` · son deneme ${saat(g.zaman)}: ${esc(g.mesaj)}`:""}</p>
-  <p class="hint" style="font-size:13px;color:var(--muted);margin:0 0 8px">Önce telefonunun hotspot'unu aç. Pi birkaç dakikalığına bu Wi-Fi'yi kapatıp hotspot üzerinden güncellemeyi indirir, sonra ağı yeniden açar. Bu sırada telefon bağlantısı kopar; işlem bitince ağa yeniden bağlanın.</p>
+  <p class="hint" style="font-size:13px;color:var(--muted);margin:0 0 8px">Önce telefonunun hotspot'unu aç. Pi hotspot'a bağlıysa güncellemeyi doğrudan indirir. Kendi ağını yayıyorsa birkaç dakikalığına hotspot'a geçer; bu sırada telefon bağlantısı kopar.</p>
   <button class="btn sm" id="guncelle">Güncellemeleri al</button><div id="gOnay"></div>`:""}
   <h2 class="sec" style="margin-top:16px">Depolama</h2>
   <p style="margin:6px 0">${d?`Boş alan ${boyut(d.bos)} / ${boyut(d.toplam)} · fotoğraflar ${boyut(d.foto)}`:"Bilgi alınamadı."}</p>
   ${saatFark>120000?`<div class="ro" style="margin-top:8px">Pi'nin saati ${nf0.format(saatFark/60000)} dakika farklı görünüyor. Sistemi telefondan bir kez açmak saati düzeltir.</div>`:""}
   <div class="actions" style="margin-top:16px"><button class="btn" data-act="kapat">Kapat</button></div>`,el=>{
-    el.querySelector("#cikis").onclick=()=>cikis();
-    el.querySelector("#pinDeg").onclick=()=>pinDegistirFormu(el.querySelector("#pinAlan"));
+    const ci=el.querySelector("#cikis");if(ci)ci.onclick=()=>cikis();
+    const pd=el.querySelector("#pinDeg");if(pd)pd.onclick=()=>pinDegistirFormu(el.querySelector("#pinAlan"));
+    const yg=el.querySelector("#yonGiris");if(yg)yg.onclick=()=>{sonEtkilesim=Date.now();girisGoster(false,true)};
+    const ku=el.querySelector("#kimlikUnut");if(ku)ku.onclick=()=>{S.kimlik=null;setSync(true,"Bağlı · Ortak");kapat();toast("Kimlik silindi")};
     const ke=el.querySelector("#kEkle");if(ke)ke.onclick=()=>kullaniciFormu(null);
     el.querySelectorAll("[data-kid]").forEach(b=>b.onclick=()=>kullaniciFormu(kullanicilar.find(u=>u.id===b.dataset.kid)));
     const wd=el.querySelector("#wifiDeg");if(wd)wd.onclick=()=>wifiFormu(el.querySelector("#wifiAlan"),w);
@@ -1079,8 +1185,9 @@ function girisGoster(kurulum,tusTakimi){
   S.ben=null;S.stok=[];S.isler=[];S.ready={stok:false,isler:false};S.surum=undefined;
   kapat();document.body.classList.add("kilitli");
   if(kurulum){vitrinKapat();return kurulumEkrani()}
-  /* Pi'nin kendi ekranında giriş yoksa stok panosu (vitrin) görünür; tuş takımı yalnızca istenince açılır */
-  if(PI_EKRANI&&!tusTakimi)return vitrinGoster();
+  /* Giriş yok: sistem herkese açık. Pi ekranı boştayken stok panosu (vitrin) görünür.
+     Tuş takımı yalnızca yönetici girişi için açılır. */
+  if(!tusTakimi)return PI_EKRANI?vitrinGoster():misafirAc();
   vitrinKapat();
   let asama="tel",tel="",pin="",mesgul=false;
   const ciz=(hata)=>{
@@ -1089,7 +1196,7 @@ function girisGoster(kurulum,tusTakimi){
       <aside class="giris-tanitim">${KEMER}${DALGA}<img class="glogo" src="/logo" alt="" onerror="this.hidden=true">
         <h1>3D Üretim Takip</h1><p class="alt">Yapı İşleri ve Teknik Daire Başkanlığı · AR-GE Birimi</p>
         <ul><li>${IK.onay}Filament ve reçine stoğu</li><li>${IK.onay}Yazıcı ve üretim kaydı</li><li>${IK.onay}Maliyet ve tasarruf raporu</li></ul></aside>
-      <div class="giris-kutu"><h2>Giriş yap</h2><p class="giris-not">Kayıtlı cep telefonu numaranız ve kişisel PIN'inizle girin.</p>
+      <div class="giris-kutu"><h2>Yönetici girişi</h2><p class="giris-not">Kişi ekleme, logo, Wi-Fi ve güncelleme için. Stok ve üretim için giriş gerekmez.</p>
       <div class="ekran ${asama==="tel"?"etkin":""} ${tel?"":"bos"}" id="gTel" role="button" tabindex="0">${tel?esc(telGoster(tel)):"Cep telefonu numaranız"}</div>
       ${asama==="pin"?`<div class="ekran etkin ${pin?"":"bos"}">${pin?"●".repeat(pin.length):"PIN'iniz"}</div>`:""}
       <div class="err" role="alert">${hata?esc(hata):""}</div>
@@ -1097,12 +1204,12 @@ function girisGoster(kurulum,tusTakimi){
         <button class="geri" data-t="sil" aria-label="Sil">⌫</button><button data-t="0">0</button>
         <button class="ok" data-t="ok" ${(asama==="tel"?telOk:pinOk)&&!mesgul?"":"disabled"}>${asama==="tel"?"Devam":"Giriş"}</button></div>
       ${asama==="pin"?`<button class="link" data-t="numara">Numarayı değiştir</button>`:""}
-      ${PI_EKRANI?`<button class="btn sm vitrine" data-t="vitrin">← Stok panosuna dön</button>`:""}
+      <button class="btn sm vitrine" data-t="vitrin">← Vazgeç</button>
     </div></div>`;
   };
   const bas=async t=>{
     if(mesgul)return;
-    if(t==="vitrin")return vitrinGoster();
+    if(t==="vitrin")return misafirAc();
     if(t==="numara"){asama="tel";pin="";return ciz()}
     if(t==="sil"){if(asama==="tel")tel=tel.slice(0,-1);else pin=pin.slice(0,-1);return ciz()}
     if(t==="ok"){
@@ -1157,24 +1264,31 @@ function kurulumEkrani(){
     catch(x){err.textContent=x.code==="gecersiz_veri"?"Telefon numarasını 05xx xxx xx xx biçiminde yazın.":hataMetni(x)}};
 }
 
-function girisYapildi(ben){
+function misafirAc(){
+  girisYapildi({id:"",ad:"Ortak kullanım",rol:"misafir"},true);
+}
+function girisYapildi(ben,misafir){
   vitrinKapat();
+  S.misafir=!!misafir;if(!misafir)S.kimlik=null;
   S.ben=ben;S.canWrite=ben.rol!=="izleyici";girisKlavye=null;app.onclick=null;
   document.body.classList.remove("kilitli");S.tab="panel";
   app.innerHTML=`<div class="empty">Kayıtlar yükleniyor…</div>`;
-  setSync(true,"Bağlı · "+ben.ad.split(" ")[0]);
+  setSync(true,"Bağlı · "+kisiAd());
   yenile();sistemYukle().then(()=>{if(PI_EKRANI)render()});
-  if(!PI_EKRANI)API("POST","/api/saat",{ms:Date.now()}).catch(()=>{});
+  if(!PI_EKRANI&&!misafir)API("POST","/api/saat",{ms:Date.now()}).catch(()=>{});
   if(!_yoklama)_yoklama=setInterval(()=>{if(!document.hidden&&S.ben)denetle()},3000);
   sonEtkilesim=Date.now();
 }
-async function cikis(){try{await API("POST","/api/cikis",{})}catch(e){}girisGoster(false)}
+async function cikis(){try{await API("POST","/api/cikis",{})}catch(e){}S.kimlik=null;girisGoster(false)}
+/* Durum çubuğunda görünen ad: yönetici oturumu > doğrulanmış kimlik > ortak */
+const kisiAd=()=>S.misafir?(kimlikGecerli()?S.kimlik.ad.split(" ")[0]:"Ortak"):(S.ben?S.ben.ad.split(" ")[0]:"");
 
 /* Pi ekranı ortak kullanıldığı için 5 dakika dokunulmazsa kilitlenir */
 let sonEtkilesim=Date.now();
 ["pointerdown","keydown","touchstart"].forEach(t=>document.addEventListener(t,()=>{sonEtkilesim=Date.now()},{passive:true}));
 if(PI_EKRANI)setInterval(()=>{
-  if(S.ben&&Date.now()-sonEtkilesim>5*60*1000){cikis();toast("Oturum kapandı, stok panosuna dönüldü")}
+  if(S.ben&&Date.now()-sonEtkilesim>5*60*1000){
+    if(S.misafir){S.kimlik=null;girisGoster(false)}else{cikis();toast("Yönetici oturumu kapandı, stok panosuna dönüldü")}}
   /* Tuş takımı açık bırakılırsa 1 dakika sonra panoya dön */
   else if(!S.ben&&!_vt.acik&&document.querySelector(".tus")&&Date.now()-sonEtkilesim>60*1000)vitrinGoster();
 },10000);
@@ -1195,7 +1309,7 @@ function vitrinGoster(){
   document.body.classList.add("kilitli","vitrin");
   document.documentElement.dataset.theme="dark";
   _vt.acik=true;_vt.surum=null;
-  app.onclick=e=>{if(e.target.closest("[data-vt=giris]")){sonEtkilesim=Date.now();girisGoster(false,true)}};
+  app.onclick=e=>{if(e.target.closest("[data-vt=giris]")){sonEtkilesim=Date.now();misafirAc()}};
   app.innerHTML=`<div class="vt-bos">Stok panosu yükleniyor…</div>`;
   clearInterval(_vt.yokla);clearInterval(_vt.saat);
   const yukle=async()=>{
@@ -1231,12 +1345,13 @@ function vitrinCiz(){
   app.innerHTML=`<div class="vt">
     <div class="vt-ust"><img src="/logo" alt="" onerror="this.hidden=true"><div class="vt-ad"><b>3D Üretim · Stok Panosu</b><span>Yapı İşleri ve Teknik Daire Başkanlığı · AR-GE Birimi</span></div><div class="vt-saat" id="vtSaat"></div></div>
     <div class="vt-yazicilar">${yz}</div>
-    <div class="vt-stok" id="vtStok">${L.length?L.map(kart).join(""):`<div class="vt-bos">Stokta kayıtlı malzeme yok. Telefondan giriş yapıp Stok bölümünden ekleyin.</div>`}</div>
+    <div class="vt-stok" id="vtStok">${L.length?L.map(kart).join(""):`<div class="vt-bos">Stokta kayıtlı malzeme yok. Sistemi açıp Stok bölümünden ekleyin.</div>`}</div>
     <aside class="vt-yan">
       <div class="vt-ozet"><div><b>${L.length}</b><span>makara</span></div><div><b>${top>=1000?nf1.format(top/1000):nf0.format(top)}</b><span>${top>=1000?"kg":"g"} stok</span></div><div class="${kr?"kr":""}"><b>${kr}</b><span>kritik</span></div></div>
-      <div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=wifi&s=${encodeURIComponent(v.sifre||"")}" alt="Wi-Fi karekodu"></div><b>1 · Wi-Fi'ye bağlan</b><span>Ağ <span class="num">${esc(v.ssid)}</span><br>Şifre <span class="num">${esc(v.sifre)}</span></span></div>
+      ${v.sifre?`<div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=wifi&s=${encodeURIComponent(v.sifre||"")}" alt="Wi-Fi karekodu"></div><b>1 · Wi-Fi'ye bağlan</b><span>Ağ <span class="num">${esc(v.ssid)}</span><br>Şifre <span class="num">${esc(v.sifre)}</span></span></div>`
+      :`<div class="vt-kutu"><b>1 · Wi-Fi'ye bağlan</b><span>Ağ <span class="num">${esc(v.ssid||"—")}</span></span></div>`}
       <div class="vt-kutu"><div class="qr"><img src="/qr.svg?t=adres" alt="Adres karekodu"></div><b>2 · Sistemi aç</b><span class="num">${esc((v.adres||"").replace(/^https?:\/\//,""))}</span></div>
-      <button class="btn pri vt-giris" data-vt="giris">Kayıt için giriş yap</button>
+      <button class="btn pri vt-giris" data-vt="giris">Sistemi aç</button>
     </aside></div>`;
   vitrinSaat();vitrinKaydir();
 }
@@ -1304,6 +1419,8 @@ function hataMetni(x){const c=x&&x.code;
   if(c==="ag")return "Pi'ye ulaşılamadı. Telefonun Pi'nin Wi-Fi ağına bağlı olduğunu kontrol edip tekrar deneyin.";
   if(c==="belge_yok")return "Bu kayıt başka bir cihazdan silinmiş.";
   if(c==="cok_buyuk")return "Dosya çok büyük.";
+  if(c==="iptal")return "Değişiklik kaydedilmedi: numara girilmedi.";
+  if(c==="yetki")return "Bu işlem için yetkiniz yok.";
   return "İşlem tamamlanamadı, tekrar deneyin.";}
 
 /* ---------- Olaylar ---------- */
@@ -1352,12 +1469,12 @@ async function yenile(){
   if(_yenileniyor)return;_yenileniyor=true;
   try{const h=await API("GET","/api/hepsi");
     S.stok=h.stok||[];S.isler=h.isler||[];S.ayar=h.ayar||null;S.surum=h.surum;S.ready.stok=S.ready.isler=true;
-    if(S.ben)setSync(true,"Bağlı · "+S.ben.ad.split(" ")[0]);render();
+    if(S.ben)setSync(true,"Bağlı · "+kisiAd());render();
   }catch(e){if(e.code==="ag")setSync(false,"Pi'ye ulaşılamıyor")}
   finally{_yenileniyor=false}
 }
 async function denetle(){
-  try{const r=await API("GET","/api/surum");if(S.ben)setSync(true,"Bağlı · "+S.ben.ad.split(" ")[0]);if(r.surum!==S.surum)yenile()}
+  try{const r=await API("GET","/api/surum");if(S.ben)setSync(true,"Bağlı · "+kisiAd());if(r.surum!==S.surum)yenile()}
   catch(e){if(e.code==="ag")setSync(false,"Pi'ye ulaşılamıyor")}
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.ben)denetle()});
