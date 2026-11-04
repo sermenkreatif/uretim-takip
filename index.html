@@ -1215,7 +1215,8 @@ function bambuListe(){
   if(!L.length)return `<div class="ro">Ağda Bambu yazıcı bulunamadı. Yazıcılar Pi ile aynı Wi-Fi'ye bağlı ve açık olmalı; bulunması bir dakika sürebilir.</div>`;
   return `<div class="list">${L.map(x=>{const k=x.kayit;
     const durum=!k?`<span class="pill p-sira">Bağlanmadı</span>`:k.bagli?`<span class="pill p-baski">Bağlı${k.durum?" · "+(BAMBU_DURUM[k.durum]||k.durum):""}</span>`:`<span class="pill p-hata">Bağlantı yok</span>`;
-    return `<div class="item" style="display:block"><div class="row sp"><div style="min-width:0"><div class="t">${esc(x.ad||x.model||"Bambu yazıcı")}${k&&k.yazici?` → ${esc(k.yazici)}`:""}</div>
+    return `<div class="item" style="display:block"><div class="row sp" style="flex-wrap:wrap;gap:8px"><div style="min-width:0;flex:1 1 220px"><div class="t">${esc(x.ad||x.model||"Bambu yazıcı")}${k&&k.yazici?` → ${esc(k.yazici)}`:""}</div>
+      ${k&&kayit.filter(z=>yzAnahtar(z.yazici)===yzAnahtar(k.yazici)).length>1?`<div style="font-size:12px;color:var(--bad);margin-top:2px">Bu yazıcıya iki Bambu bağlı; "Düzenle"den doğru olanı seçin.</div>`:""}
       ${k&&!yazicilar().some(p=>yzAnahtar(p)===yzAnahtar(k.yazici))?`<div style="font-size:12px;color:var(--bad);margin-top:2px">Eşleştirilen yazıcı listede yok; "Düzenle"den yeniden seçin.</div>`:""}
       <div class="s num" style="font-size:12px;color:var(--muted)">${esc(x.seri)}${x.ip?" · "+esc(x.ip):""}</div>${k&&k.hata?`<div style="font-size:12px;color:var(--bad);margin-top:2px">${esc(k.hata)}</div>`:""}</div>
       <div class="row" style="gap:6px">${durum}<button class="btn sm" data-bseri="${esc(x.seri)}">${k?"Düzenle":"Bağla"}</button></div></div><div data-bform="${esc(x.seri)}"></div></div>`}).join("")}</div>`;
@@ -1224,7 +1225,7 @@ function bambuOlay(alan){
   alan.querySelectorAll("[data-bseri]").forEach(b=>b.onclick=()=>{
     const seri=b.dataset.bseri,k=((S.bambu||{}).yazicilar||[]).find(x=>x.seri===seri),f=alan.querySelector(`[data-bform="${seri}"]`);
     f.innerHTML=`<form class="form" style="margin-top:10px" novalidate>
-      <div class="fld"><label>Uygulamadaki yazıcı</label><select name="yz">${yazicilar().map(p=>`<option value="${esc(p)}" ${k&&yzAnahtar(k.yazici)===yzAnahtar(p)?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Uygulamadaki yazıcı</label><select name="yz"><option value="">Seçin…</option>${yazicilar().map(p=>`<option value="${esc(p)}" ${k&&yzAnahtar(k.yazici)===yzAnahtar(p)?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
       <div class="fld"><label>Erişim kodu${k?" (değiştirmeyecekseniz boş bırakın)":""}</label><input name="kod" inputmode="text" autocomplete="off" maxlength="12" placeholder="Yazıcı ekranındaki 8 haneli kod"></div>
       <div class="err" role="alert"></div>
       <div class="row" style="gap:8px">${k?`<button type="button" class="btn danger sm" data-bsil>Kaldır</button>`:""}<button type="button" class="btn sm" data-biptal>Vazgeç</button><button class="btn pri sm">Kaydet</button></div></form>`;
@@ -1232,6 +1233,9 @@ function bambuOlay(alan){
     f.querySelector("[data-biptal]").onclick=()=>f.innerHTML="";
     const sil=f.querySelector("[data-bsil]");if(sil)sil.onclick=async()=>{try{await API("DELETE","/api/bambu/"+seri);await bambuYukle();alan.innerHTML=bambuListe();bambuOlay(alan);render()}catch(x){err.textContent=hataMetni(x)}};
     fo.onsubmit=async e=>{e.preventDefault();const kod=fo.kod.value.trim();
+      if(!fo.yz.value){err.textContent="Uygulamadaki yazıcıyı seçin.";return}
+      const cakisan=((S.bambu||{}).yazicilar||[]).find(x=>x.seri!==seri&&yzAnahtar(x.yazici)===yzAnahtar(fo.yz.value));
+      if(cakisan){err.textContent=fo.yz.value+" zaten başka bir Bambu yazıcıya bağlı ("+cakisan.seri+"). Önce onu düzeltin.";return}
       if(!k&&!/^[A-Za-z0-9]{6,12}$/.test(kod)){err.textContent="Erişim kodunu yazın.";return}
       try{await API("POST","/api/bambu",{seri,kod,yazici:fo.yz.value});toast("Kaydedildi, yazıcıya bağlanılıyor");
         await new Promise(r=>setTimeout(r,4000));await bambuYukle();alan.innerHTML=bambuListe();bambuOlay(alan);render()}
