@@ -509,10 +509,15 @@ def bambu_isci(seri):
                 al = {"guncel": simdi_ms(), "bagli": True, "hata": ""}
                 for k, h in (("gcode_state", "durum"), ("mc_percent", "yuzde"), ("mc_remaining_time", "kalanDk"),
                              ("subtask_name", "is"), ("layer_num", "katman"), ("total_layer_num", "toplamKatman"),
-                             ("nozzle_temper", "nozul"), ("bed_temper", "tabla")):
+                             ("nozzle_temper", "nozul"), ("bed_temper", "tabla"), ("task_id", "gorev"),
+                             ("gcode_start_time", "baslamaZamani"), ("gcode_file", "dosya")):
                     if k in p:
                         al[h] = p[k]
                 _bambu_guncelle(seri, **al)
+                try:
+                    bambu_is_takip(seri, y, ip)
+                except Exception:
+                    pass
         except Exception:
             _bambu_guncelle(seri, bagli=False, hata="Yazıcıya ulaşılamıyor (%s)." % ip)
         finally:
@@ -522,6 +527,228 @@ def bambu_isci(seri):
                 pass
         _bambu_bekle(seri, bekle, y.get("kod"))
         bekle = min(bekle * 2, 60)
+
+
+
+# ---------- Bambu baskılarını üretime otomatik kaydetme ----------
+import ftplib, zipfile, io as _io
+
+BAMBU_CALISIYOR = ("RUNNING", "PREPARE", "SLICING", "PAUSE")
+
+
+class _ImplicitFTPS(ftplib.FTP_TLS):
+    """Bambu yazıcıların dosya sunucusu: 990 portunda doğrudan TLS, veri kanalı aynı oturumla."""
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self._sock = None
+
+    @property
+    def sock(self):
+        return self._sock
+
+    @sock.setter
+    def sock(self, deger):
+        if deger is not None and not isinstance(deger, ssl.SSLSocket):
+            deger = self.context.wrap_socket(deger)
+        self._sock = deger
+
+    def ntransfercmd(self, cmd, rest=None):
+        conn, boyut = ftplib.FTP.ntransfercmd(self, cmd, rest)
+        if self._prot_p:
+            conn = self.context.wrap_socket(conn, session=self.sock.session)
+        return conn, boyut
+
+
+def bambu_dilim_bilgisi(ip, kod, is_adi, dosya):
+    """Yazıcıdaki baskı dosyasından (3MF) dilimleyicinin hesapladığı gramajı ve filamentleri okur."""
+    baglam = ssl.create_default_context()
+    baglam.check_hostname = False
+    baglam.verify_mode = ssl.CERT_NONE
+    f = _ImplicitFTPS(context=baglam, timeout=20)
+    f.connect(ip, 990)
+    try:
+        f.login("bblp", kod)
+        f.prot_p()
+        adaylar = []
+        if dosya and dosya.lower().endswith(".3mf"):
+            adaylar.append(dosya)
+        for klasor in ("/cache", "/"):
+            try:
+                for n in f.nlst(klasor):
+                    tam = n if n.startswith("/") else klasor.rstrip("/") + "/" + n
+                    if tam.lower().endswith(".3mf") and is_adi and os.path.basename(tam).startswith(is_adi):
+                        adaylar.append(tam)
+            except Exception:
+                pass
+        for yol in adaylar:
+            b = _io.BytesIO()
+            try:
+                f.retrbinary("RETR " + yol, b.write)
+            except Exception:
+                continue
+            with zipfile.ZipFile(b) as z:
+                ad = next((n for n in z.namelist() if n.endswith("slice_info.config")), None)
+                if not ad:
+                    continue
+                xml = z.read(ad).decode("utf-8", "ignore")
+            fil = []
+            for m in re.finditer(r"<filament\b([^>]*)/?>", xml):
+                at = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))
+                try:
+                    g = float(at.get("used_g") or 0)
+                except ValueError:
+                    g = 0
+                if g > 0:
+                    fil.append({"tur": at.get("type", ""), "renk": at.get("color", ""), "g": g})
+            if fil:
+                return {"gram": round(sum(x["g"] for x in fil), 1), "filamentler": fil}
+        return None
+    finally:
+        try:
+            f.quit()
+        except Exception:
+            pass
+
+
+def _renk_uzakligi(a, b):
+    try:
+        a, b = a.lstrip("#")[:6], b.lstrip("#")[:6]
+        return sum((int(a[i:i + 2], 16) - int(b[i:i + 2], 16)) ** 2 for i in (0, 2, 4)) ** 0.5
+    except Exception:
+        return 999
+
+
+def stok_eslestir(tur, renk):
+    """Dilimleyicideki filament türü ve rengine en yakın stok kaydı; tek ve yakın bir aday yoksa None."""
+    tur = (tur or "").upper().replace("-", " ")
+    with baglan() as c:
+        L = [(i, json.loads(v)) for i, v in c.execute("SELECT id, veri FROM belge WHERE kol='stok'")]
+    aday = []
+    for i, d in L:
+        mal = (d.get("malzeme") or "").upper()
+        if not mal or mal == "REÇINE" or (float(d.get("kalanGr") or 0) <= 0):
+            continue
+        ana = tur.split()[0] if tur else ""
+        if ana and not (ana in mal or mal.split()[0] in tur or ana in (d.get("marka") or "").upper()):
+            continue
+        aday.append((_renk_uzakligi(renk, d.get("renkHex") or ""), i))
+    aday.sort()
+    if aday and aday[0][0] < 60 and (len(aday) == 1 or aday[1][0] - aday[0][0] > 15):
+        return aday[0][1]
+    return None
+
+
+def _is_bul(gorev):
+    with baglan() as c:
+        for i, v in c.execute("SELECT id, veri FROM belge WHERE kol='isler'"):
+            d = json.loads(v)
+            if d.get("bambuGorev") == gorev:
+                return i, d
+    return None, None
+
+
+def _is_yaz(i, d):
+    with kilit, baglan() as c:
+        c.execute("INSERT OR REPLACE INTO belge VALUES ('isler',?,?)", (i, json.dumps(d, ensure_ascii=False)))
+        surum_arttir(c)
+
+
+_bambu_gram_isteniyor = set()
+_bambu_son = {}     # seri -> (görev anahtarı, son işlenen durum)
+
+
+def _gram_getir(seri, ip, kod, is_id, is_adi, dosya):
+    try:
+        bilgi = bambu_dilim_bilgisi(ip, kod, is_adi, dosya)
+    except Exception:
+        bilgi = None
+    finally:
+        _bambu_gram_isteniyor.discard(is_id)
+    if not bilgi:
+        return
+    with baglan() as c:
+        r = c.execute("SELECT veri FROM belge WHERE kol='isler' AND id=?", (is_id,)).fetchone()
+    if not r:
+        return
+    d = json.loads(r[0])
+    d["tahminiGr"] = bilgi["gram"]
+    d["filamentler"] = bilgi["filamentler"]
+    if not d.get("stokId"):
+        ana = max(bilgi["filamentler"], key=lambda x: x["g"])
+        sid = stok_eslestir(ana["tur"], ana["renk"])
+        if sid:
+            d["stokId"] = sid
+            with baglan() as c:
+                sr = c.execute("SELECT veri FROM belge WHERE kol='stok' AND id=?", (sid,)).fetchone()
+            if sr:
+                d["birimFiyatKg"] = float(json.loads(sr[0]).get("birimFiyatKg") or 0)
+    _is_yaz(is_id, d)
+    # Baskı gram okunmadan bittiyse şimdi kapat
+    durum = (bambu_durum.get(seri) or {}).get("durum")
+    if d.get("durum") == "baski" and durum in ("FINISH", "FAILED"):
+        _bambu_son.pop(seri, None)
+        bambu_is_takip(seri, {"kod": kod, "yazici": d.get("yazici")}, ip)
+
+
+def bambu_is_takip(seri, y, ip):
+    """Yazıcıda baskı başlayınca üretime 'Baskıda' iş açar; bitince/hata verince işi kapatır ve stoktan düşer."""
+    yazici = y.get("yazici")
+    with bambu_kilit:
+        st = dict(bambu_durum.get(seri) or {})
+    durum, is_adi = st.get("durum"), (st.get("is") or "").strip()
+    if not yazici or not durum or not is_adi:
+        return
+    gorev = "%s:%s:%s" % (seri, st.get("gorev") or "", st.get("baslamaZamani") or is_adi)
+    onceki = _bambu_son.get(seri)
+    if onceki and onceki[0].startswith(gorev):
+        if onceki[1] == durum:
+            return              # bu durum zaten işlendi
+        gorev = onceki[0]
+    i, d = _is_bul(gorev)
+    simdi = simdi_ms()
+    if (durum in BAMBU_CALISIYOR and d and d.get("durum") in ("tamam", "hata") and not st.get("baslamaZamani")
+            and not (onceki and onceki[0] == gorev)):
+        gorev, i, d = gorev + ":" + str(simdi), None, None     # başlama zamanı bilinmiyor; aynı dosya yeniden basılıyor
+    _bambu_son[seri] = (gorev, durum)
+    if durum in BAMBU_CALISIYOR and not d:
+        # Uygulamadan elle açılmış ve aynı yazıcıda süren bir iş varsa ona bağla, yoksa yenisini aç
+        with baglan() as c:
+            elle = [(k, json.loads(v)) for k, v in c.execute("SELECT id, veri FROM belge WHERE kol='isler'")]
+        elle = [(k, v) for k, v in elle if v.get("durum") == "baski" and v.get("yazici") == yazici and not v.get("bambuGorev")]
+        if elle:
+            i, d = elle[0]
+            d["bambuGorev"] = gorev
+        else:
+            i = "b" + secrets.token_hex(7)
+            kalan = st.get("kalanDk")
+            d = {"ad": is_adi, "adet": 1, "birim": "", "yazici": yazici, "stokId": None, "tahminiGr": None,
+                 "tahminiSure": round(float(kalan) / 60, 2) if kalan else None, "piyasaBirim": None,
+                 "not": "Yazıcıdan otomatik kaydedildi.", "durum": "baski", "olusturma": simdi, "baslangic": simdi,
+                 "bitis": None, "gercekGr": None, "fotolar": [], "stokDusulenGr": 0, "bambuGorev": gorev,
+                 "olusturan": "Otomatik (yazıcı)", "olusturanZaman": simdi, "degistiren": "Otomatik (yazıcı)"}
+        _is_yaz(i, d)
+        if d.get("tahminiGr") is None and i not in _bambu_gram_isteniyor:
+            _bambu_gram_isteniyor.add(i)
+            threading.Thread(target=_gram_getir, args=(seri, ip, y.get("kod", ""), i, is_adi, st.get("dosya")),
+                             daemon=True).start()
+        return
+    if d and d.get("durum") == "baski" and durum in ("FINISH", "FAILED"):
+        if d.get("tahminiGr") is None and i in _bambu_gram_isteniyor:
+            return          # gram okunuyor; okununca _gram_getir kapatacak
+        tam = durum == "FINISH"
+        g = d.get("tahminiGr")
+        if g is not None and not tam:
+            g = round(g * max(0, min(100, float(st.get("yuzde") or 0))) / 100, 1)
+        d.update(durum="tamam" if tam else "hata", bitis=simdi, bitiren="Otomatik (yazıcı)", degistiren="Otomatik (yazıcı)")
+        if g is not None:
+            d["gercekGr"] = g
+            if d.get("stokId"):
+                fark = g - float(d.get("stokDusulenGr") or 0)
+                if fark and stok_degis(d["stokId"], -fark, "Otomatik (yazıcı)") is not None:
+                    d["stokDusulenGr"] = g
+        else:
+            d["not"] = (d.get("not") or "") + " Gramaj yazıcıdan okunamadı; elle girin."
+        _is_yaz(i, d)
 
 
 def bambu_baslat():
