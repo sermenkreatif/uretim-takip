@@ -675,6 +675,8 @@ function panelHTML(){
   _bambuCizilen=bambuImza();
   const s=donemOzet(0),o=donemOzet(-1);
   const aktif=S.isler.filter(j=>j.durum==="baski");
+  /* Baskıdaki yazıcı sayısı: canlı bağlı yazıcıda yazıcının kendi durumu, diğerlerinde açık üretim kaydı */
+  const baskidaN=yazicilar().filter(p=>{const b=bambuCanli(p);return b?["RUNNING","PREPARE","SLICING","PAUSE"].includes(b.durum):aktif.some(j=>j.yazici===p)}).length;
   const sira=S.isler.filter(j=>j.durum==="sira").sort((a,b)=>(a.olusturma||0)-(b.olusturma||0));
   const kritik=S.stok.filter(kritikMi);
   const son=S.isler.filter(j=>j.durum==="tamam"||j.durum==="hata").sort((a,b)=>(b.bitis||0)-(a.bitis||0)).slice(0,5);
@@ -684,7 +686,7 @@ function panelHTML(){
   const sa=new Date().getHours(),selam=sa<11?"Günaydın":sa<18?"İyi çalışmalar":"İyi akşamlar";
   const ad=S.misafir?(kimlikGecerli()?S.kimlik.ad.split(" ")[0]:""):(S.ben&&S.ben.ad||"").split(" ")[0];
   const bugun=new Date().toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  const ozet=(aktif.length?`Şu an ${aktif.length} yazıcıda baskı sürüyor`:"Şu an baskıda iş yok")+
+  const ozet=(baskidaN?`Şu an ${baskidaN} yazıcıda baskı sürüyor`:"Şu an baskıda iş yok")+
     (sira.length?`, ${sira.length} iş sırada bekliyor`:"")+
     (kritik.length?`. ${kritik.length} malzeme kritik seviyenin altında.`:". Stoklar yeterli seviyede.");
   const kpi=(ik,renk,l,v,alt,vs)=>`<div class="kpi"><span class="ik ${renk}">${IK[ik]}</span><div class="l">${l}</div><div class="v ${vs||""}">${yuk?"…":v}</div>${yuk?"":alt}</div>`;
@@ -693,7 +695,7 @@ function panelHTML(){
   <section class="hero">${KEMER}${DALGA}
     <div><div class="hero-ust">${esc(bugun)}</div><h1>${esc(selam)}${ad?", "+esc(ad):""}</h1><p>${yuk?"Kayıtlar yükleniyor…":esc(ozet)}</p></div>
     <div class="hero-sayilar">
-      <div class="hs"><div class="l">Baskıda</div><div class="v">${aktif.length} / ${yazicilar().length}</div></div>
+      <div class="hs"><div class="l">Baskıda</div><div class="v">${baskidaN} / ${yazicilar().length}</div></div>
       <div class="hs"><div class="l">Sırada</div><div class="v">${sira.length}</div></div>
       <div class="hs"><div class="l">Kritik stok</div><div class="v">${kritik.length}</div></div></div>
   </section>
@@ -708,7 +710,7 @@ function panelHTML(){
     </div>
   </section>
   <section class="bolum">
-    <div class="bolum-bas"><h2 class="sec">Yazıcılar<small>${(()=>{const n=yazicilar().filter(p=>{const b=bambuCanli(p);return b?["RUNNING","PREPARE","SLICING","PAUSE"].includes(b.durum):aktif.some(j=>j.yazici===p)}).length;return n+" baskıda · "+(yazicilar().length-n)+" boşta"})()}</small></h2>${yonetici()?`<button class="btn ghost sm" data-act="ayar">Ekle / düzenle</button>`:""}</div>
+    <div class="bolum-bas"><h2 class="sec">Yazıcılar<small>${baskidaN} baskıda · ${yazicilar().length-baskidaN} boşta</small></h2>${yonetici()?`<button class="btn ghost sm" data-act="ayar">Ekle / düzenle</button>`:""}</div>
     <div class="printers">${yazicilar().map(p=>yaziciKart(p,aktif.find(x=>x.yazici===p))).join("")}</div>
   </section>
   <div class="izgara iki">

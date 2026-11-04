@@ -49,12 +49,14 @@ fi
 
 GECICI=$(mktemp -d)
 HATA=""
-curl -fsS --max-time 30 -o "$GECICI/dosyalar.txt" "$DEPO/dosyalar.txt" || HATA="dosya listesi indirilemedi"
+# GitHub dosyaları birkaç dakika önbellekte tutar; her indirmeye benzersiz ek koy ki hep son sürüm gelsin
+TAZE="?t=$(date +%s)"
+curl -fsS --max-time 30 -o "$GECICI/dosyalar.txt" "$DEPO/dosyalar.txt$TAZE" || HATA="dosya listesi indirilemedi"
 if [ -z "$HATA" ]; then
   while read -r f; do
     [ -z "$f" ] && continue
     mkdir -p "$GECICI/$(dirname "$f")"
-    curl -fsS --max-time 60 -o "$GECICI/$f" "$DEPO/$f" && [ -s "$GECICI/$f" ] || { HATA="$f indirilemedi"; break; }
+    curl -fsS --max-time 60 -o "$GECICI/$f" "$DEPO/$f$TAZE" && [ -s "$GECICI/$f" ] || { HATA="$f indirilemedi"; break; }
   done < "$GECICI/dosyalar.txt"
 fi
 [ -z "$HATA" ] && { python3 -m py_compile "$GECICI/sunucu.py" "$GECICI/yedekle.py" 2>/dev/null || HATA="indirilen kod bozuk"; }
