@@ -672,6 +672,7 @@ function altBilgi(){
   return `<footer class="alt-bilgi"><img src="/logo" alt="" onerror="this.hidden=true"><div><b>Yapı İşleri ve Teknik Daire Başkanlığı</b><br>AR-GE Birimi · 3D Teknoloji${S.sistem&&S.sistem.surumKod?" · Sürüm "+esc(S.sistem.surumKod):""}</div></footer>`;
 }
 function panelHTML(){
+  _bambuCizilen=bambuImza();
   const s=donemOzet(0),o=donemOzet(-1);
   const aktif=S.isler.filter(j=>j.durum==="baski");
   const sira=S.isler.filter(j=>j.durum==="sira").sort((a,b)=>(a.olusturma||0)-(b.olusturma||0));
@@ -1194,8 +1195,11 @@ function kullaniciFormu(u){
 
 /* ---------- Bambu yazıcılar (canlı durum) ---------- */
 async function bambuYukle(){try{S.bambu=await API("GET","/api/bambu")}catch(e){}return S.bambu}
-setInterval(async()=>{if(document.hidden||!S.ben)return;const once=JSON.stringify(S.bambu&&S.bambu.yazicilar);await bambuYukle();
-  if(JSON.stringify(S.bambu&&S.bambu.yazicilar)!==once&&S.tab==="panel"&&!layer.innerHTML)render()},5000);
+/* Panelde en son çizilen canlı durum; pencere açıkken gelen değişiklik kaybolmasın diye çizilenle karşılaştırılır */
+let _bambuCizilen="";
+const bambuImza=()=>JSON.stringify(((S.bambu||{}).yazicilar||[]).map(x=>[x.yazici,x.bagli,x.durum,x.yuzde,x.kalanDk,x.is,x.katman]));
+setInterval(async()=>{if(document.hidden||!S.ben)return;await bambuYukle();
+  if(bambuImza()!==_bambuCizilen&&S.tab==="panel"&&!layer.innerHTML)render()},5000);
 function bambuListe(){
   const B=S.bambu||{bulunan:[],yazicilar:[]},kayit=B.yazicilar||[],M={};
   kayit.forEach(k=>M[k.seri]={seri:k.seri,model:k.model,kayit:k});
