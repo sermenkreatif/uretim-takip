@@ -299,10 +299,231 @@ VITRIN_YOLLARI = {"/api/vitrin", "/qr.svg"}
 YONETICI = [
     (None, re.compile(r"^/api/kullanici(lar)?(/.*)?$")),
     (None, re.compile(r"^/api/(guncelle|wifi-sifre|logo)$")),
+    ("POST", re.compile(r"^/api/bambu$")), ("DELETE", re.compile(r"^/api/bambu/[A-Za-z0-9]+$")),
     ("PUT", re.compile(r"^/api/belge/ayar/")), ("PATCH", re.compile(r"^/api/belge/ayar/")), ("DELETE", re.compile(r"^/api/belge/ayar/")),
 ]
 # İzleyicinin de yapabildiği yazma işlemleri
 IZLEYICI_YAZMA = {"/api/cikis", "/api/pin-degistir", "/api/saat"}
+
+
+# ---------- Bambu Lab yazıcıları (yerel ağ, MQTT) ----------
+# Yazıcılar ağa her birkaç saniyede "buradayım" duyurusu (UDP 2021) yapar: IP, seri no, model buradan bulunur.
+# Canlı durum yazıcının kendi MQTT sunucusundan (TLS 8883, kullanıcı bblp, şifre = yazıcının erişim kodu) okunur.
+import socket, ssl, struct
+
+BAMBU_DOSYA = os.path.join(VERI, "bambu.json")
+bambu_kilit = threading.Lock()
+bambu_bulunan = {}     # seri -> {ip, model, ad, zaman}
+bambu_durum = {}       # seri -> canlı durum
+_bambu_isciler = {}    # seri -> iş parçacığı
+
+
+def bambu_ayar():
+    try:
+        with open(BAMBU_DOSYA, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def bambu_ayar_yaz(d):
+    gec = BAMBU_DOSYA + ".gecici"
+    with open(gec, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False)
+    os.chmod(gec, 0o600)
+    os.replace(gec, BAMBU_DOSYA)
+
+
+def bambu_dinle(port=2021):
+    """Yazıcıların ağ duyurularını dinler (SSDP benzeri; yayın UDP 2021, çoklu yayın 239.255.255.250:1990)."""
+    while True:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", port))
+            if port == 1990:
+                s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
+                             socket.inet_aton("239.255.255.250") + socket.inet_aton("0.0.0.0"))
+            while True:
+                veri, (ip, _) = s.recvfrom(4096)
+                t = veri.decode("utf-8", "ignore")
+                if "bambu" not in t.lower():
+                    continue
+                alan = {}
+                for satir in t.split("\r\n"):
+                    if ":" in satir:
+                        k, v = satir.split(":", 1)
+                        alan[k.strip().lower()] = v.strip()
+                seri = alan.get("usn", "")
+                if not re.match(r"^[A-Za-z0-9]{8,20}$", seri):
+                    continue
+                with bambu_kilit:
+                    bambu_bulunan[seri] = {"ip": alan.get("location", ip) or ip,
+                                           "model": alan.get("devmodel.bambu.com", ""),
+                                           "ad": alan.get("devname.bambu.com", ""), "zaman": simdi_ms()}
+        except Exception:
+            time.sleep(10)
+
+
+def _mqtt_dize(s):
+    b = s.encode("utf-8")
+    return struct.pack("!H", len(b)) + b
+
+
+def _mqtt_paket(tur, govde):
+    n, uz = len(govde), b""
+    while True:
+        bayt = n % 128; n //= 128
+        uz += bytes([bayt | (128 if n else 0)])
+        if not n:
+            break
+    return bytes([tur]) + uz + govde
+
+
+def _mqtt_oku(sock):
+    bas = sock.recv(1)
+    if not bas:
+        raise ConnectionError("kapandi")
+    carpan, n = 1, 0
+    while True:
+        b = sock.recv(1)
+        if not b:
+            raise ConnectionError("kapandi")
+        n += (b[0] & 127) * carpan
+        if not b[0] & 128:
+            break
+        carpan *= 128
+    veri = b""
+    while len(veri) < n:
+        parca = sock.recv(n - len(veri))
+        if not parca:
+            raise ConnectionError("kapandi")
+        veri += parca
+    return bas[0], veri
+
+
+def _bambu_guncelle(seri, **alan):
+    with bambu_kilit:
+        d = bambu_durum.setdefault(seri, {})
+        d.update(alan)
+
+
+def _bambu_bekle(seri, sn, kod):
+    """sn saniye bekler; bu arada erişim kodu değişir ya da yazıcı silinirse hemen döner."""
+    son = time.time() + sn
+    while time.time() < son:
+        time.sleep(2)
+        if (bambu_ayar().get("yazicilar", {}).get(seri) or {}).get("kod") != kod:
+            return
+
+
+def bambu_isci(seri):
+    """Bir yazıcıya bağlanır, durum mesajlarını okur; kopunca yeniden dener. Ayardan çıkarılınca biter."""
+    bekle = 5
+    while True:
+        y = bambu_ayar().get("yazicilar", {}).get(seri)
+        if not y:
+            with bambu_kilit:
+                bambu_durum.pop(seri, None)
+                _bambu_isciler.pop(seri, None)
+            return
+        with bambu_kilit:
+            ip = (bambu_bulunan.get(seri) or {}).get("ip") or y.get("ip")
+        if not ip:
+            _bambu_guncelle(seri, bagli=False, hata="Yazıcı ağda bulunamadı. Pi ile aynı Wi-Fi'de ve açık mı?")
+            _bambu_bekle(seri, 10, y.get("kod"))
+            continue
+        sock = None
+        try:
+            baglam = ssl.create_default_context()
+            baglam.check_hostname = False
+            baglam.verify_mode = ssl.CERT_NONE
+            sock = baglam.wrap_socket(socket.create_connection((ip, 8883), timeout=10))
+            istemci = "uretim-" + secrets.token_hex(4)
+            gov = _mqtt_dize("MQTT") + bytes([4, 0xC2]) + struct.pack("!H", 60)
+            gov += _mqtt_dize(istemci) + _mqtt_dize("bblp") + _mqtt_dize(y.get("kod", ""))
+            sock.sendall(_mqtt_paket(0x10, gov))
+            tur, veri = _mqtt_oku(sock)
+            if tur >> 4 != 2 or len(veri) < 2 or veri[1] != 0:
+                kod = veri[1] if len(veri) > 1 else -1
+                _bambu_guncelle(seri, bagli=False, hata=("Erişim kodu kabul edilmedi. Kodu yazıcı ekranından kontrol edin; "
+                                                         "yazıcıda LAN modu ya da geliştirici modu gerekebilir.")
+                                if kod in (4, 5) else "Yazıcı bağlantıyı reddetti (kod %s)." % kod)
+                _bambu_bekle(seri, 60, y.get("kod"))
+                continue
+            sock.sendall(_mqtt_paket(0x82, struct.pack("!H", 1) + _mqtt_dize("device/%s/report" % seri) + b"\x00"))
+            istek = json.dumps({"pushing": {"sequence_id": "0", "command": "pushall"}}).encode()
+            sock.sendall(_mqtt_paket(0x30, _mqtt_dize("device/%s/request" % seri) + istek))
+            _bambu_guncelle(seri, bagli=True, hata="", ip=ip)
+            bekle = 5
+            sock.settimeout(30)
+            son_ping = son_tam = time.time()
+            while True:
+                if (bambu_ayar().get("yazicilar", {}).get(seri) or {}).get("kod") != y.get("kod"):
+                    break
+                try:
+                    tur, veri = _mqtt_oku(sock)
+                except socket.timeout:
+                    tur = None
+                if time.time() - son_ping > 30:
+                    sock.sendall(b"\xc0\x00"); son_ping = time.time()
+                if time.time() - son_tam > 300:   # ara ara tam durum iste
+                    sock.sendall(_mqtt_paket(0x30, _mqtt_dize("device/%s/request" % seri) + istek)); son_tam = time.time()
+                if tur is None or tur >> 4 != 3:
+                    continue
+                tl = struct.unpack("!H", veri[:2])[0]
+                yuk = veri[2 + tl + (2 if tur & 0x06 else 0):]
+                try:
+                    p = json.loads(yuk.decode("utf-8", "ignore")).get("print")
+                except Exception:
+                    continue
+                if not isinstance(p, dict):
+                    continue
+                al = {"guncel": simdi_ms(), "bagli": True, "hata": ""}
+                for k, h in (("gcode_state", "durum"), ("mc_percent", "yuzde"), ("mc_remaining_time", "kalanDk"),
+                             ("subtask_name", "is"), ("layer_num", "katman"), ("total_layer_num", "toplamKatman"),
+                             ("nozzle_temper", "nozul"), ("bed_temper", "tabla")):
+                    if k in p:
+                        al[h] = p[k]
+                _bambu_guncelle(seri, **al)
+        except Exception:
+            _bambu_guncelle(seri, bagli=False, hata="Yazıcıya ulaşılamıyor (%s)." % ip)
+        finally:
+            try:
+                sock and sock.close()
+            except Exception:
+                pass
+        _bambu_bekle(seri, bekle, y.get("kod"))
+        bekle = min(bekle * 2, 60)
+
+
+def bambu_baslat():
+    threading.Thread(target=bambu_dinle, args=(2021,), daemon=True).start()
+    threading.Thread(target=bambu_dinle, args=(1990,), daemon=True).start()
+    for seri in bambu_ayar().get("yazicilar", {}):
+        bambu_isci_ac(seri)
+
+
+def bambu_isci_ac(seri):
+    with bambu_kilit:
+        if seri in _bambu_isciler:
+            return
+        t = threading.Thread(target=bambu_isci, args=(seri,), daemon=True)
+        _bambu_isciler[seri] = t
+    t.start()
+
+
+def bambu_ozet():
+    """Arayüze giden bilgi. Erişim kodları asla dışarı verilmez."""
+    ayar = bambu_ayar().get("yazicilar", {})
+    with bambu_kilit:
+        bulunan = [{"seri": s, "ip": v["ip"], "model": v["model"], "ad": v["ad"], "kayitli": s in ayar}
+                   for s, v in bambu_bulunan.items() if simdi_ms() - v["zaman"] < 120000]
+        yaz = [dict(bambu_durum.get(s, {}), seri=s, yazici=v.get("yazici", ""),
+                    model=(bambu_bulunan.get(s) or {}).get("model", ""))
+               for s, v in ayar.items()]
+    return {"bulunan": bulunan, "yazicilar": yaz}
 
 
 class Isleyici(BaseHTTPRequestHandler):
@@ -476,6 +697,8 @@ class Isleyici(BaseHTTPRequestHandler):
             if not FOTO_RE.match(i):
                 return self.hata(404, "bulunamadi")
             return self.dosya(os.path.join(FOTO, i + ".jpg"), "image/jpeg", "private, max-age=31536000, immutable")
+        if p == "/api/bambu":
+            return self.gonder(200, bambu_ozet())
         if p == "/api/vitrin":
             return self.gonder(200, vitrin())
         if p == "/api/surum":
@@ -534,6 +757,13 @@ class Isleyici(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if not self.yetki("DELETE", p):
             return
+        m = re.match(r"^/api/bambu/([A-Za-z0-9]{8,20})$", p)
+        if m:
+            with kilit:
+                d = bambu_ayar(); d.setdefault("yazicilar", {}).pop(m.group(1), None); bambu_ayar_yaz(d)
+            with bambu_kilit:
+                bambu_durum.pop(m.group(1), None)
+            return self.gonder(200, {"tamam": True})
         m = re.match(r"^/api/foto/([a-f0-9]{32})$", p)
         if m:
             try:
@@ -597,6 +827,29 @@ class Isleyici(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if not self.yetki("POST", p):
             return
+        if p == "/api/bambu":
+            try:
+                v = self.json_oku()
+            except Exception:
+                return self.hata(400, "gecersiz_veri")
+            seri = str(v.get("seri", "")).strip()
+            kod = str(v.get("kod", "")).strip()
+            yazici = ad_temizle(v.get("yazici", ""))
+            if not re.match(r"^[A-Za-z0-9]{8,20}$", seri) or (kod and not re.match(r"^[A-Za-z0-9]{6,12}$", kod)):
+                return self.hata(400, "gecersiz_veri")
+            with kilit:
+                d = bambu_ayar(); yz = d.setdefault("yazicilar", {})
+                eski = yz.get(seri, {})
+                if not kod and not eski.get("kod"):
+                    return self.hata(400, "gecersiz_veri")
+                with bambu_kilit:
+                    ip = (bambu_bulunan.get(seri) or {}).get("ip") or eski.get("ip", "")
+                yz[seri] = {"kod": kod or eski.get("kod"), "yazici": yazici, "ip": ip}
+                bambu_ayar_yaz(d)
+            with bambu_kilit:
+                bambu_durum.pop(seri, None)
+            bambu_isci_ac(seri)
+            return self.gonder(200, {"tamam": True})
         if p == "/api/foto":
             try:
                 b = self.oku(MAX_FOTO)
@@ -826,6 +1079,7 @@ class Isleyici(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     kur_db()
     ag_onceligi()
+    bambu_baslat()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Isleyici)
     srv.daemon_threads = True
     print("3D Üretim Takip %s port %d, veri: %s" % (SURUM_KOD, PORT, VERI), flush=True)

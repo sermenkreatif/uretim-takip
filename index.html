@@ -198,6 +198,8 @@ h2.sec small{font-family:var(--f-body);font-weight:500;font-size:13px;letter-spa
 .prn .durum{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px}
 .prn .durum i{width:8px;height:8px;border-radius:50%;background:var(--logo-gri)}
 .prn.busy .durum{color:var(--fg);font-weight:600}
+.prn .canli{margin-left:4px;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--ok);border:1px solid currentColor;border-radius:4px;padding:0 4px}
+.prn.hatali{border-color:var(--bad)}.prn.hatali .durum{color:var(--bad)}
 .prn.busy .durum i{background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
 .prn .is{border:0;background:none;padding:0;text-align:left;font-weight:600;cursor:pointer;font-size:14px;color:inherit;overflow-wrap:anywhere}
 .prn .is:hover{text-decoration:underline}
@@ -646,7 +648,18 @@ function malzemeDagilim(L){
   if(!E.length)return `<div class="empty" style="border:0;padding:16px 8px">Bu dönemde malzeme harcanmadı.</div>`;
   return `<div class="hbar">${E.map(([k,v])=>`<div class="hbar-s"><span>${esc(k)}</span><span class="iz"><i style="width:${(v/E[0][1]*100).toFixed(1)}%"></i></span><span class="num">${gr(v)}</span></div>`).join("")}</div>`;
 }
+const BAMBU_DURUM={RUNNING:"Baskıda",PREPARE:"Hazırlanıyor",SLICING:"Hazırlanıyor",PAUSE:"Duraklatıldı",FINISH:"Bitti",FAILED:"Hata verdi",IDLE:"Boşta"};
+const bambuCanli=p=>S.bambu&&(S.bambu.yazicilar||[]).find(x=>x.yazici===p&&x.bagli&&x.durum);
 function yaziciKart(p,j){
+  const b=bambuCanli(p);
+  if(b){
+    const calisiyor=["RUNNING","PREPARE","SLICING","PAUSE"].includes(b.durum),y=Math.max(0,Math.min(100,+b.yuzde||0));
+    const alt=[b.kalanDk>0&&calisiyor?sure(b.kalanDk/60)+" kaldı":"",b.toplamKatman?`katman ${b.katman||0}/${b.toplamKatman}`:""].filter(Boolean).join(" · ");
+    return `<div class="prn ${calisiyor?"busy":""} ${b.durum==="FAILED"?"hatali":""}"><div class="prn-ust"><span class="prn-ik">${IK.yazici}</span><div style="min-width:0"><div class="n">${esc(p)}</div>
+      <div class="durum"><i></i>${BAMBU_DURUM[b.durum]||esc(b.durum)}${calisiyor||b.durum==="FINISH"?` · %${y}`:""}<span class="canli">CANLI</span></div></div></div>
+      ${j?`<button class="is" data-act="is" data-id="${j.id}">${esc(j.ad)}</button>`:b.is&&b.durum!=="IDLE"?`<div class="kalan" style="color:var(--fg);font-weight:600;overflow-wrap:anywhere">${esc(b.is)}</div>`:""}
+      ${calisiyor||b.durum==="FINISH"?`<div class="ilerleme" role="progressbar" aria-valuenow="${y}" aria-valuemin="0" aria-valuemax="100"><i style="width:${y}%"></i></div>`:""}
+      <div class="kalan">${alt||(j?"":"Yeni iş başlatılabilir")}</div></div>`}
   let ek="";
   if(j&&j.baslangic&&j.tahminiSure){const top=j.tahminiSure*3600000,gec=Date.now()-j.baslangic,o=Math.max(0,Math.min(1,gec/top)),kal=top-gec;
     ek=`<div class="ilerleme" role="progressbar" aria-valuenow="${Math.round(o*100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(o*100).toFixed(1)}%"></i></div>
@@ -694,7 +707,7 @@ function panelHTML(){
     </div>
   </section>
   <section class="bolum">
-    <div class="bolum-bas"><h2 class="sec">Yazıcılar<small>${aktif.length} baskıda · ${yazicilar().length-aktif.filter(j=>yazicilar().includes(j.yazici)).length} boşta</small></h2>${yonetici()?`<button class="btn ghost sm" data-act="ayar">Ekle / düzenle</button>`:""}</div>
+    <div class="bolum-bas"><h2 class="sec">Yazıcılar<small>${(()=>{const n=yazicilar().filter(p=>{const b=bambuCanli(p);return b?["RUNNING","PREPARE","SLICING","PAUSE"].includes(b.durum):aktif.some(j=>j.yazici===p)}).length;return n+" baskıda · "+(yazicilar().length-n)+" boşta"})()}</small></h2>${yonetici()?`<button class="btn ghost sm" data-act="ayar">Ekle / düzenle</button>`:""}</div>
     <div class="printers">${yazicilar().map(p=>yaziciKart(p,aktif.find(x=>x.yazici===p))).join("")}</div>
   </section>
   <div class="izgara iki">
@@ -1076,6 +1089,8 @@ async function sistemFormu(){
     <div class="qr"><img src="/qr.svg?t=wifi" alt="Wi-Fi karekodu" onerror="this.parentNode.hidden=true"></div>
     <dl class="dl" style="margin:0;flex:1;min-width:180px"><dt>Wi-Fi</dt><dd class="num">${esc(w.ssid||"—")}</dd><dt>Şifre</dt><dd class="num">${esc(w.sifre||"—")}</dd><dt>Adres</dt><dd class="num">${esc(w.adres)}</dd></dl></div>
   ${yon?`<button class="btn sm" id="wifiDeg" style="margin-top:8px">Wi-Fi şifresini değiştir</button><div id="wifiAlan"></div>`:""}
+  ${yon?`<h2 class="sec" style="margin-top:16px">Bambu yazıcılar</h2><div id="bambuAlan" style="margin-top:8px">${bambuListe()}</div>
+  <p class="hint" style="font-size:13px;color:var(--muted);margin:6px 0 0">Yazıcılar Pi ile aynı Wi-Fi'de olmalı; Pi onları kendiliğinden bulur. Erişim kodu yazıcı ekranında: Ayarlar → Ağ (WLAN) → Erişim Kodu.</p>`:""}
   <h2 class="sec" style="margin-top:16px">Yedek</h2>
   <p style="margin:6px 0">${y?(y.durum==="tamam"?`Son yedek ${saat(y.zaman)}, USB belleğe alındı${y.foto?` (${nf0.format(y.foto)} yeni fotoğraf)`:""}.`:esc(y.mesaj)+` (${saat(y.zaman)})`):"Henüz yedek alınmadı."}</p>
   <p class="hint" style="font-size:13px;color:var(--muted);margin:0 0 8px">Yedek her gün 12:30 ve 17:30'da kendiliğinden alınır. Pi'ye bir USB bellek takılı kalmalı.</p>
@@ -1095,6 +1110,7 @@ async function sistemFormu(){
     const ke=el.querySelector("#kEkle");if(ke)ke.onclick=()=>kullaniciFormu(null);
     el.querySelectorAll("[data-kid]").forEach(b=>b.onclick=()=>kullaniciFormu(kullanicilar.find(u=>u.id===b.dataset.kid)));
     const wd=el.querySelector("#wifiDeg");if(wd)wd.onclick=()=>wifiFormu(el.querySelector("#wifiAlan"),w);
+    const ba=el.querySelector("#bambuAlan");if(ba){bambuOlay(ba);bambuYukle().then(()=>{if(document.body.contains(ba)&&!ba.querySelector("form")){ba.innerHTML=bambuListe();bambuOlay(ba)}})}
     const ls=el.querySelector("#logoSec");
     if(ls)ls.onchange=async()=>{const f=ls.files[0];if(!f)return;
       const tur=f.type||({svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp"}[(f.name.split(".").pop()||"").toLowerCase()]||"");
@@ -1173,6 +1189,41 @@ function kullaniciFormu(u){
     if(sb)sb.onclick=()=>silOnay(null,`<b>${esc(u.ad)}</b> silinsin mi? Yaptığı kayıtlar silinmez, adıyla kalır.`,async()=>{
       try{await API("DELETE","/api/kullanici/"+u.id);toast("Kişi silindi")}catch(x){toast(x.code==="kendini_kilitleme"?"Kendinizi silemezsiniz":hataMetni(x));throw x}
       setTimeout(sistemFormu,50)});
+  });
+}
+
+/* ---------- Bambu yazıcılar (canlı durum) ---------- */
+async function bambuYukle(){try{S.bambu=await API("GET","/api/bambu")}catch(e){}return S.bambu}
+setInterval(async()=>{if(document.hidden||!S.ben)return;const once=JSON.stringify(S.bambu&&S.bambu.yazicilar);await bambuYukle();
+  if(JSON.stringify(S.bambu&&S.bambu.yazicilar)!==once&&S.tab==="panel"&&!layer.innerHTML)render()},5000);
+function bambuListe(){
+  const B=S.bambu||{bulunan:[],yazicilar:[]},kayit=B.yazicilar||[],M={};
+  kayit.forEach(k=>M[k.seri]={seri:k.seri,model:k.model,kayit:k});
+  (B.bulunan||[]).forEach(b=>{M[b.seri]=Object.assign(M[b.seri]||{seri:b.seri},{ad:b.ad,model:b.model||(M[b.seri]||{}).model,ip:b.ip})});
+  const L=Object.values(M);
+  if(!L.length)return `<div class="ro">Ağda Bambu yazıcı bulunamadı. Yazıcılar Pi ile aynı Wi-Fi'ye bağlı ve açık olmalı; bulunması bir dakika sürebilir.</div>`;
+  return `<div class="list">${L.map(x=>{const k=x.kayit;
+    const durum=!k?`<span class="pill p-sira">Bağlanmadı</span>`:k.bagli?`<span class="pill p-baski">Bağlı${k.durum?" · "+(BAMBU_DURUM[k.durum]||k.durum):""}</span>`:`<span class="pill p-hata">Bağlantı yok</span>`;
+    return `<div class="item" style="display:block"><div class="row sp"><div style="min-width:0"><div class="t">${esc(x.ad||x.model||"Bambu yazıcı")}${k&&k.yazici?` → ${esc(k.yazici)}`:""}</div>
+      <div class="s num" style="font-size:12px;color:var(--muted)">${esc(x.seri)}${x.ip?" · "+esc(x.ip):""}</div>${k&&k.hata?`<div style="font-size:12px;color:var(--bad);margin-top:2px">${esc(k.hata)}</div>`:""}</div>
+      <div class="row" style="gap:6px">${durum}<button class="btn sm" data-bseri="${esc(x.seri)}">${k?"Düzenle":"Bağla"}</button></div></div><div data-bform="${esc(x.seri)}"></div></div>`}).join("")}</div>`;
+}
+function bambuOlay(alan){
+  alan.querySelectorAll("[data-bseri]").forEach(b=>b.onclick=()=>{
+    const seri=b.dataset.bseri,k=((S.bambu||{}).yazicilar||[]).find(x=>x.seri===seri),f=alan.querySelector(`[data-bform="${seri}"]`);
+    f.innerHTML=`<form class="form" style="margin-top:10px" novalidate>
+      <div class="fld"><label>Uygulamadaki yazıcı</label><select name="yz">${yazicilar().map(p=>`<option ${k&&k.yazici===p?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
+      <div class="fld"><label>Erişim kodu${k?" (değiştirmeyecekseniz boş bırakın)":""}</label><input name="kod" inputmode="text" autocomplete="off" maxlength="12" placeholder="Yazıcı ekranındaki 8 haneli kod"></div>
+      <div class="err" role="alert"></div>
+      <div class="row" style="gap:8px">${k?`<button type="button" class="btn danger sm" data-bsil>Kaldır</button>`:""}<button type="button" class="btn sm" data-biptal>Vazgeç</button><button class="btn pri sm">Kaydet</button></div></form>`;
+    const fo=f.querySelector("form"),err=f.querySelector(".err");
+    f.querySelector("[data-biptal]").onclick=()=>f.innerHTML="";
+    const sil=f.querySelector("[data-bsil]");if(sil)sil.onclick=async()=>{try{await API("DELETE","/api/bambu/"+seri);await bambuYukle();alan.innerHTML=bambuListe();bambuOlay(alan);render()}catch(x){err.textContent=hataMetni(x)}};
+    fo.onsubmit=async e=>{e.preventDefault();const kod=fo.kod.value.trim();
+      if(!k&&!/^[A-Za-z0-9]{6,12}$/.test(kod)){err.textContent="Erişim kodunu yazın.";return}
+      try{await API("POST","/api/bambu",{seri,kod,yazici:fo.yz.value});toast("Kaydedildi, yazıcıya bağlanılıyor");
+        await new Promise(r=>setTimeout(r,4000));await bambuYukle();alan.innerHTML=bambuListe();bambuOlay(alan);render()}
+      catch(x){err.textContent=x.code==="gecersiz_veri"?"Erişim kodu geçersiz.":hataMetni(x)}};
   });
 }
 
@@ -1271,7 +1322,7 @@ function girisYapildi(ben,misafir){
   document.body.classList.remove("kilitli");S.tab="panel";
   app.innerHTML=`<div class="empty">Kayıtlar yükleniyor…</div>`;
   setSync(true,"Bağlı · "+kisiAd());
-  yenile();sistemYukle().then(()=>{if(PI_EKRANI)render()});
+  yenile();sistemYukle().then(()=>{if(PI_EKRANI)render()});bambuYukle().then(()=>render());
   if(PI_EKRANI)ekranAcikTut();
   if(!PI_EKRANI&&!misafir)API("POST","/api/saat",{ms:Date.now()}).catch(()=>{});
   if(!_yoklama)_yoklama=setInterval(()=>{if(!document.hidden&&S.ben)denetle()},3000);
