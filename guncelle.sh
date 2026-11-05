@@ -23,7 +23,8 @@ EOF
   chown "$SAHIP:$SAHIP" "$VERI/guncelleme-durum.json"
 }
 # Güncelleme bitince: Pi internetteyse (hotspot) öyle kalsın; değilse kendi ağını aç
-agi_ac(){ internet || nmcli con up uretim-ap >/dev/null 2>&1 || true; }
+# Güncelleme bitince Pi kendi ağını açmaz; hotspot'a bağlanmayı NetworkManager sürdürür
+agi_ac(){ true; }
 internet(){ curl -fsI --max-time 6 "$DEPO/dosyalar.txt" >/dev/null 2>&1; }
 
 durum calisiyor "Güncelleme başladı, internete bağlanılıyor."
